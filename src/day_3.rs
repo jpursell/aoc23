@@ -1,6 +1,7 @@
 pub fn day_3() {
     let input = include_str!("day_3_data.txt");
     println!("day 3a {}", day_3a(input));
+    println!("day 3b {}", day_3b(input));
 }
 
 struct Schematic<'a> {
@@ -134,16 +135,59 @@ impl<'a> Schematic<'a> {
         }
         output
     }
+    fn find_parts(&self) -> Vec<NumLocation> {
+        self.find_num_locations()
+            .into_iter()
+            .filter(|loc| self.is_part(loc))
+            .collect::<Vec<NumLocation>>()
+    }
+
+    fn get_gear_ratio(&self, iline: usize, pos: usize, parts: &Vec<NumLocation>) -> Option<u32> {
+        let parts = parts
+            .into_iter()
+            .filter(|loc| loc.iline == iline || loc.iline == iline - 1 || loc.iline == iline + 1)
+            .filter(|loc| pos <= loc.end && pos as i64 >= loc.start as i64 - 1)
+            .collect::<Vec<&NumLocation>>();
+        if parts.len() == 2 {
+            return Some(
+                parts
+                    .iter()
+                    .map(|loc| self.extract_part(loc))
+                    .collect::<Vec<u32>>()
+                    .iter()
+                    .product(),
+            );
+        }
+        None
+    }
+
+    fn sum_gear_ratios(&self) -> u32 {
+        let parts = self.find_parts();
+        let mut sum = 0_u32;
+        for (iline, line) in self.lines.iter().enumerate() {
+            for (pos, c) in line.chars().enumerate() {
+                if c == '*' {
+                    match self.get_gear_ratio(iline, pos, &parts) {
+                        Some(ratio) => {
+                            sum += ratio;
+                        }
+                        None => (),
+                    }
+                }
+            }
+        }
+        sum
+    }
 }
 
 fn day_3a(input: &str) -> u32 {
     let schematic = Schematic::new(input);
-    let parts = schematic
-        .find_num_locations()
-        .into_iter()
-        .filter(|loc| schematic.is_part(loc))
-        .collect::<Vec<NumLocation>>();
+    let parts = schematic.find_parts();
     parts.iter().map(|loc| schematic.extract_part(loc)).sum()
+}
+
+fn day_3b(input: &str) -> u32 {
+    Schematic::new(input).sum_gear_ratios()
 }
 
 #[cfg(test)]
@@ -161,5 +205,6 @@ mod tests {
 ...$.*....
 .664.598.."#;
         assert_eq!(super::day_3a(input), 4361);
+        assert_eq!(super::day_3b(input), 467835);
     }
 }
