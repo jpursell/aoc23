@@ -33,6 +33,101 @@ fn day_1a(input: &str) -> u32 {
     sum
 }
 
+fn day_1a_faster(input: &str) -> u32 {
+    let mut sum: u32 = 0;
+    for line in input.split("\n") {
+        for c in line.chars() {
+            match c {
+                '0' => {
+                    break;
+                }
+                '1' => {
+                    sum += 10;
+                    break;
+                }
+                '2' => {
+                    sum += 20;
+                    break;
+                }
+                '3' => {
+                    sum += 30;
+                    break;
+                }
+                '4' => {
+                    sum += 40;
+                    break;
+                }
+                '5' => {
+                    sum += 50;
+                    break;
+                }
+                '6' => {
+                    sum += 60;
+                    break;
+                }
+                '7' => {
+                    sum += 70;
+                    break;
+                }
+                '8' => {
+                    sum += 80;
+                    break;
+                }
+                '9' => {
+                    sum += 90;
+                    break;
+                }
+                _ => (),
+            }
+        }
+        for c in line.chars().rev() {
+            match c {
+                '0' => {
+                    break;
+                }
+                '1' => {
+                    sum += 1;
+                    break;
+                }
+                '2' => {
+                    sum += 2;
+                    break;
+                }
+                '3' => {
+                    sum += 3;
+                    break;
+                }
+                '4' => {
+                    sum += 4;
+                    break;
+                }
+                '5' => {
+                    sum += 5;
+                    break;
+                }
+                '6' => {
+                    sum += 6;
+                    break;
+                }
+                '7' => {
+                    sum += 7;
+                    break;
+                }
+                '8' => {
+                    sum += 8;
+                    break;
+                }
+                '9' => {
+                    sum += 9;
+                    break;
+                }
+                _ => (),
+            }
+        }
+    }
+    sum
+}
+
 fn day_1b(input: &str) -> u32 {
     let mut sum = 0;
     for line in input.split("\n") {
@@ -220,9 +315,9 @@ fn day_1b(input: &str) -> u32 {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     #[test]
-    fn test_day_1b(){
+    fn test_day_1b() {
         let input = r#"two1nine
 eightwothree
 abcone2threexyz
@@ -230,6 +325,17 @@ xtwone3four
 4nineeightseven2
 zoneight234
 7pqrstsixteen"#;
-    assert_eq!(super::day_1b(input), 281_u32);
+        assert_eq!(super::day_1b(input), 281_u32);
+    }
+    #[test]
+    pub fn test2() {
+        let day_1_data = include_str!("day_1_data.txt");
+        let now = std::time::Instant::now();
+        assert_eq!(super::day_1a(day_1_data), 54644);
+        println!("day_1a took {} seconds", now.elapsed().as_secs_f32());
+        let now = std::time::Instant::now();
+        assert_eq!(super::day_1a_faster(day_1_data), 54644);
+        println!("day_1a_faster took {} seconds", now.elapsed().as_secs_f32());
+        assert_eq!(super::day_1b(day_1_data), 53348);
     }
 }
