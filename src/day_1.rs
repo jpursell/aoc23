@@ -4,7 +4,7 @@ pub fn day_1() {
     println!("day 1b {}", day_1b(day_1_data));
 }
 
-pub fn day_1a(input: &str) -> u32 {
+fn day_1a(input: &str) -> u32 {
     fn find_first(line: &str) -> char {
         for c in line.chars() {
             if c.is_numeric() {
@@ -33,7 +33,7 @@ pub fn day_1a(input: &str) -> u32 {
     sum
 }
 
-pub fn day_1b(input: &str) -> u32 {
+fn day_1b(input: &str) -> u32 {
     let mut sum = 0;
     for line in input.split("\n") {
         for (pos, char) in line.chars().enumerate() {
