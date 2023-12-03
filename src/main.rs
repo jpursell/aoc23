@@ -998,7 +998,8 @@ jjpngnpzglkbltbrv2tjmqrpb
 4txvpps9kvjhgsqpcv6eight2jxk
 onesix8qfvkckg145ndkfdcvznine
 nkthree86b5fgzzfoneqn
-eightgndhmrfouronexldvdvqnzxqjczfk1"#.to_string()
+eightgndhmrfouronexldvdvqnzxqjczfk1"#
+        .to_string()
 }
 
 fn day_1() {
@@ -1032,15 +1033,39 @@ fn day_1() {
     println!("day 1 sum {}", sum);
 }
 
-
-fn day_2(){
+fn day_2() {
     let input = day_1_data();
+    let mut sum = 0;
     for line in input.split("\n") {
-        
+        for (pos, char) in line.chars().enumerate() {
+            match char {
+                'z' => {
+                    if line.len() - pos >= 3 && &line[pos + 1..pos + 4] == "ero" {
+                        println!("    **** found zero");
+                        println!("{} z {}", &line[..pos], &line[pos + 1..]);
+                        break;
+                    }
+                }
+                'o' => {
+                    if line.len() - pos >= 2 && &line[pos + 1..pos + 3] == "ne" {
+                        println!("    **** found one");
+                        println!("{} o {}", &line[..pos], &line[pos + 1..]);
+                        break;
+                    }
+                }
+                _ => (),
+            }
+        }
     }
+    println!("day 2 sum: {}", sum);
 }
 
 fn main() {
-    // day_1();
-    day_2();
+    day_1();
+    // day_2();
+    let data = r#"foo
+    bar"#;
+    for line in data.split("\n") {
+        println!("{} {}", line, line.len());
+    }
 }
