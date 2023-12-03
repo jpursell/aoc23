@@ -1,3 +1,9 @@
+pub fn day_1() {
+    let day_1_data = include_str!("day_1_data.txt");
+    println!("day 1a {}", day_1a(day_1_data));
+    println!("day 1b {}", day_1b(day_1_data));
+}
+
 pub fn day_1a(input: &str) -> u32 {
     fn find_first(line: &str) -> char {
         for c in line.chars() {
