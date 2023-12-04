@@ -1,7 +1,7 @@
 pub fn day_4() {
     let input = include_str!("day_4_data.txt");
     println!("day 4a {}", day_4a(input));
-    // println!("day 4b {}", day_4b(input));
+    println!("day 4b {}", day_4b(input));
 }
 
 fn process_4a_line(line: & str) -> u32{
@@ -50,21 +50,17 @@ fn process_4b_line(line: & str) -> u32 {
 
 fn day_4b(input: &str) -> u32 {
     let mut card_count = counter::Counter::new();
-    let mut highest = 0_usize;
-    let mut last_card = 0_usize;
+    let mut sum = 0_u32;
     for (iline, line) in input.lines().enumerate() {
         card_count[&iline] += 1;
-        let matches = process_4a_line(line);
-        let multiplier = card_count[&iline];
+        let matches = process_4b_line(line);
+        let multiplier: u32 = card_count[&iline];
         for i in 1..matches + 1 {
             card_count[&(iline + i as usize)] += multiplier;
         }
-        highest = highest.max(iline + matches);
-        last_card = iline;
+        sum += card_count[&iline];
     }
-
-    dbg!(&card_count);
-    card_count.total()
+    sum
 }
 
 #[cfg(test)]
