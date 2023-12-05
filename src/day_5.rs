@@ -47,7 +47,7 @@ impl Seeds {
         for num in line.split_whitespace() {
             seeds.push(num.parse::<u32>().unwrap());
         }
-        Seeds{seeds}
+        Seeds { seeds }
     }
 }
 
@@ -70,11 +70,15 @@ impl Map {
             let dest_start = nums[0].parse::<u32>().unwrap();
             let source_start = nums[1].parse::<u32>().unwrap();
             let length = nums[2].parse::<u32>().unwrap();
-            for i in 0..length{
+            for i in 0..length {
                 assert_eq!(num_map.insert(source_start + i, dest_start + i), None);
             }
         }
-        Map{input: input.to_string(), output: output.to_string(), map: num_map}
+        Map {
+            input: input.to_string(),
+            output: output.to_string(),
+            map: num_map,
+        }
     }
 }
 
@@ -89,29 +93,33 @@ impl Plan {
         let maps = find_maps(input);
         assert!(is_seeds(&maps[0]));
         let seeds = Seeds::new(&maps[0]);
-        let maps_vec = maps[1..].iter().map(|map| Map::new(map)).collect::<Vec<Map>>();
+        let maps_vec = maps[1..]
+            .iter()
+            .map(|map| Map::new(map))
+            .collect::<Vec<Map>>();
         let mut maps = std::collections::HashMap::new();
         for map in maps_vec {
             maps.insert(map.input.clone(), map.clone());
         }
-        Plan{seeds, maps}
+        Plan { seeds, maps }
     }
 
-    fn map_seeds(&self, dest: String) -> Vec<u32> {
+    fn map_seeds(&self, dest: &String) -> Vec<u32> {
         let mut out = Vec::new();
-        let mut key = "seed".to_string;
-        for seed in self.seeds {
+        for seed in &self.seeds.seeds {
+            let mut key = &"seed".to_string();
             let mut val = seed;
             while key != dest {
-                let map = self.maps[key];
-                let val = match map.contains_key(val) {
-                    true => map[val],
+                let map = &self.maps[key];
+                val = match map.map.contains_key(&val) {
+                    true => &map.map[&val],
                     false => val,
                 };
-                key = map.output;
+                key = &map.output;
             }
-            out.push(val);
+            out.push(*val);
         }
+        out
     }
 }
 
@@ -120,9 +128,13 @@ fn is_seeds(map: &Vec<&str>) -> bool {
 }
 
 fn day_5a(input: &str) -> u32 {
-    let plan = Plan::new(input);
-    dbg!(plan);
-    0
+    *Plan::new(input)
+        .map_seeds(&"location".to_string())
+        .iter()
+        .min()
+        .unwrap()
+    // dbg!(Plan::new(input));
+    // 0
 }
 
 fn day_5b(input: &str) -> u32 {
@@ -166,7 +178,7 @@ temperature-to-humidity map:
 humidity-to-location map:
 60 56 37
 56 93 4"#;
-        assert_eq!(super::day_5a(input), 0);
+        assert_eq!(super::day_5a(input), 35);
         assert_eq!(super::day_5b(input), 0);
     }
 }
