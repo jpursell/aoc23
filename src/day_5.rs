@@ -1,6 +1,6 @@
 pub fn day_5() {
-    // let input = include_str!("day_5_data.txt");
-    // println!("day 5a {}", day_5a(input));
+    let input = include_str!("day_5_data.txt");
+    println!("day 5a {}", day_5a(input));
     // println!("day 5b {}", day_5b(input));
 }
 
