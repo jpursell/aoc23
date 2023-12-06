@@ -34,22 +34,12 @@ fn find_maps(input: &str) -> Vec<Vec<&str>> {
 }
 
 #[derive(Debug)]
-struct Seeds {
-    seeds: Vec<u32>,
+struct SeedRange {
+    start: u32,
+    range: u32,
 }
-
-impl Seeds {
-    fn new(map: &Vec<&str>) -> Seeds {
-        assert_eq!(map.len(), 1);
-        let line = map[0];
-        let (_, line) = line.split_once(": ").unwrap();
-        let mut seeds = Vec::new();
-        for num in line.split_whitespace() {
-            seeds.push(num.parse::<u32>().unwrap());
-        }
-        Seeds { seeds }
-    }
-    fn new_b(map: &Vec<&str>) -> Seeds {
+impl SeedRange {
+    fn make_vec(map: &Vec<&str>) -> Vec<SeedRange> {
         assert_eq!(map.len(), 1);
         let line = map[0];
         let (_, line) = line.split_once(": ").unwrap();
@@ -62,7 +52,25 @@ impl Seeds {
         for i in 0..nums.len() / 2 {
             let start = nums[i * 2];
             let range = nums[i * 2 + 1];
-            seeds.append(&mut (start..(range + start)).into_iter().collect::<Vec<u32>>());
+            seeds.push(SeedRange{start,range});
+        }
+        seeds
+    }
+}
+
+#[derive(Debug)]
+struct Seeds {
+    seeds: Vec<u32>,
+}
+
+impl Seeds {
+    fn new(map: &Vec<&str>) -> Seeds {
+        assert_eq!(map.len(), 1);
+        let line = map[0];
+        let (_, line) = line.split_once(": ").unwrap();
+        let mut seeds = Vec::new();
+        for num in line.split_whitespace() {
+            seeds.push(num.parse::<u32>().unwrap());
         }
         Seeds { seeds }
     }
@@ -88,15 +96,31 @@ impl RangeMap {
             range,
         }
     }
+    fn get_offset(&self) -> u32 {
+        return self.dest_start - self.source_start
+    }
     fn contains_key(&self, key: &u32) -> bool {
         if key < &self.source_start {
             return false;
         }
         key - self.source_start <= self.range - 1
     }
+    fn contains_dest(&self, dest: &u32) -> bool {
+        if dest < &self.dest_start {
+            return false;
+        }
+        dest - self.dest_start <= self.range - 1
+    }
     fn lookup(&self, key: &u32) -> u32 {
         assert!(self.contains_key(key));
         return key - self.source_start + self.dest_start;
+    }
+    fn reverse_lookup(&self, dest: &u32) -> u32 {
+        assert!(self.contains_dest(dest));
+        return dest + self.source_start - self.dest_start;
+    }
+    fn one_beyond(&self) -> u32 {
+        self.source_start + self.range
     }
 }
 
@@ -122,6 +146,7 @@ impl Map {
             maps: maps,
         }
     }
+
     fn lookup(&self, key: &u32) -> u32 {
         for map in self.maps.iter() {
             if map.contains_key(key) {
@@ -130,6 +155,34 @@ impl Map {
         }
         *key
     }
+
+    fn reverse_lookup(&self, dest: &u32) -> u32 {
+        for map in self.maps.iter() {
+            if map.contains_dest(key) {
+                return map.reverse_lookup(dest);
+            }
+        }
+        *key
+    }
+
+    fn find_next(&self, key: &u32) -> u32 {
+        for map in self.maps.iter() {
+            if map.contains_key(key) {
+                return map.one_beyond();
+            }
+        }
+        // was not in map range so find next map
+        self.maps.iter().filter(|m| m.source_start > key).map(|m| m.source_start).min()
+    }
+
+    fn get_offset(&self, key: &u32) -> u32 {
+        for map in self.maps.iter() {
+            if map.contains_key(key) {
+                return map.get_offset()
+            }
+        }
+        0
+    }
 }
 
 #[derive(Debug)]
@@ -137,6 +190,7 @@ struct Plan {
     seeds: Seeds,
     maps: std::collections::HashMap<String, Map>,
 }
+
 
 impl Plan {
     fn new(input: &str) -> Plan {
@@ -154,10 +208,55 @@ impl Plan {
         Plan { seeds, maps }
     }
 
-    fn new_b(input: &str) -> Plan {
+    fn map_seeds(&self, dest: &String) -> Vec<u32> {
+        let mut out = Vec::new();
+        for seed in &self.seeds.seeds {
+            let mut key = &"seed".to_string();
+            let mut val = *seed;
+            while key != dest {
+                let map = &self.maps[key];
+                val = map.lookup(&val);
+                key = &map.output;
+            }
+            out.push(val);
+        }
+        out
+    }
+}
+
+fn find_next_last_two_maps(map_n_minus_one: &Map, map_n: &Map, start: &u32) -> u32 {
+    let next_top = map_n_minus_one.find_next(start)
+    let next_low = map_n_minus_one.reverse_lookup(map_n.find_next(map_n_minus_one.lookup(start)));
+    next_top.min(next_low);
+}
+
+fn combine_last_two_maps(map_n_minus_one: &Map, map_n: &Map) -> Map {
+    let input = map_n_minus_one.input;
+    let output = map_n.output;
+    let start = map_n_minus_one.maps.iter().map(|m| m.dest_start).min().unwrap();
+    let next = find_next_last_two_maps(map_n_minus_one, map_n, start);
+    Map{input, output, maps}
+}
+
+
+fn flatten_map(maps: std::collections::HashMap<Map>, start: &str, dest:&str) -> Map {
+    let mut key = start;
+    while key != dest {
+        let map = maps[key].unwrap();
+    }
+}
+
+#[derive(Debug)]
+struct PlanB {
+    seeds: Vec<SeedRange>,
+    maps: std::collections::HashMap<String, Map>,
+}
+
+impl PlanB {
+    fn new(input: &str) -> Plan {
         let maps = find_maps(input);
         assert!(is_seeds(&maps[0]));
-        let seeds = Seeds::new_b(&maps[0]);
+        let seeds = SeedRange::make_vec(&maps[0]);
         let maps_vec = maps[1..]
             .iter()
             .map(|map| Map::new(map))
