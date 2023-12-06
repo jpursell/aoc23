@@ -113,11 +113,11 @@ impl RangeMap {
     }
     fn lookup(&self, key: &u32) -> u32 {
         assert!(self.contains_key(key));
-        return key - self.source_start + self.dest_start;
+        key + self.get_offset()
     }
     fn reverse_lookup(&self, dest: &u32) -> u32 {
         assert!(self.contains_dest(dest));
-        return dest + self.source_start - self.dest_start;
+        dest - self.get_offset()
     }
     fn one_beyond(&self) -> u32 {
         self.source_start + self.range
@@ -165,14 +165,19 @@ impl Map {
         *key
     }
 
-    fn find_next(&self, key: &u32) -> u32 {
+    fn find_next(&self, key: &u32) -> Option<u32> {
         for map in self.maps.iter() {
             if map.contains_key(key) {
-                return map.one_beyond();
+                return Some(map.one_beyond());
             }
         }
         // was not in map range so find next map
-        self.maps.iter().filter(|m| m.source_start > key).map(|m| m.source_start).min()
+        self
+            .maps
+            .iter()
+            .filter(|m| m.source_start > key)
+            .map(|m| m.source_start)
+            .min()
     }
 
     fn get_offset(&self, key: &u32) -> u32 {
@@ -224,26 +229,50 @@ impl Plan {
     }
 }
 
-fn find_next_last_two_maps(map_n_minus_one: &Map, map_n: &Map, start: &u32) -> u32 {
-    let next_top = map_n_minus_one.find_next(start)
-    let next_low = map_n_minus_one.reverse_lookup(map_n.find_next(map_n_minus_one.lookup(start)));
-    next_top.min(next_low);
+fn find_next_last_two_maps(map_n_minus_one: &Map, map_n: &Map, start: &u32) -> Option(u32) {
+    let next_top = map_n_minus_one.find_next(start);
+    // let next_low = map_n_minus_one.reverse_lookup(map_n.find_next(map_n_minus_one.lookup(start)));
+    let next_low = map_n.find_next(&map_n_minus_one.lookup(start)) {
+        Some(key) => Some(map_n_minus_one.reverse_lookup(key)),
+        None => None,
+    }
+    match (next_top, next_low) {
+        (Some(nk), Some(lk)) => nk.min(lk),
+        (Some(nk), None) => nk,
+        (None, Some(lk)) => lk,
+        (None, None) => None,
+    }
 }
 
 fn combine_last_two_maps(map_n_minus_one: &Map, map_n: &Map) -> Map {
     let input = map_n_minus_one.input;
     let output = map_n.output;
-    let start = map_n_minus_one.maps.iter().map(|m| m.dest_start).min().unwrap();
-    let next = find_next_last_two_maps(map_n_minus_one, map_n, start);
+    let mut start = map_n_minus_one.maps.iter().map(|m| m.dest_start).min().unwrap();
+    let mut maps = Vec::new();
+    loop {
+        let next = match find_next_last_two_maps(map_n_minus_one, map_n, &start) {
+            Some(next) => next,
+            None => {break;}
+        }
+        let range = next - start;
+        let dest_start = map_n.lookup(&map_n_minus_one.lookup(&start));
+        maps.push(RangeMap{dest_start, source_start: start, range});
+        start = next;
+    }
     Map{input, output, maps}
 }
 
+fn pop_last_2_maps(&mut maps: std::collections::HashMap<Map>, start: &str, dest: &str) -> (Map, Map) {
 
+}
 fn flatten_map(maps: std::collections::HashMap<Map>, start: &str, dest:&str) -> Map {
-    let mut key = start;
-    while key != dest {
-        let map = maps[key].unwrap();
+    while maps.len() > 1{
+        (map_n_minus_one, map_n) = pop_last_2_maps(&mut maps, start: &str, dest: &str);
     }
+    // let mut key = start;
+    // while key != dest {
+    //     let map = maps[key].unwrap();
+    // }
 }
 
 #[derive(Debug)]
