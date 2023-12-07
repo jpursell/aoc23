@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 pub fn day_5() {
     let input = include_str!("day_5_data.txt");
     println!("day 5a {}", day_5a(input));
@@ -52,7 +54,7 @@ impl SeedRange {
         for i in 0..nums.len() / 2 {
             let start = nums[i * 2];
             let range = nums[i * 2 + 1];
-            seeds.push(SeedRange{start,range});
+            seeds.push(SeedRange { start, range });
         }
         seeds
     }
@@ -97,7 +99,7 @@ impl RangeMap {
         }
     }
     fn get_offset(&self) -> u32 {
-        return self.dest_start - self.source_start
+        return self.dest_start - self.source_start;
     }
     fn contains_key(&self, key: &u32) -> bool {
         if key < &self.source_start {
@@ -158,11 +160,11 @@ impl Map {
 
     fn reverse_lookup(&self, dest: &u32) -> u32 {
         for map in self.maps.iter() {
-            if map.contains_dest(key) {
+            if map.contains_dest(dest) {
                 return map.reverse_lookup(dest);
             }
         }
-        *key
+        *dest
     }
 
     fn find_next(&self, key: &u32) -> Option<u32> {
@@ -172,10 +174,9 @@ impl Map {
             }
         }
         // was not in map range so find next map
-        self
-            .maps
+        self.maps
             .iter()
-            .filter(|m| m.source_start > key)
+            .filter(|m| m.source_start > *key)
             .map(|m| m.source_start)
             .min()
     }
@@ -183,7 +184,7 @@ impl Map {
     fn get_offset(&self, key: &u32) -> u32 {
         for map in self.maps.iter() {
             if map.contains_key(key) {
-                return map.get_offset()
+                return map.get_offset();
             }
         }
         0
@@ -193,9 +194,8 @@ impl Map {
 #[derive(Debug)]
 struct Plan {
     seeds: Seeds,
-    maps: std::collections::HashMap<String, Map>,
+    maps: HashMap<String, Map>,
 }
-
 
 impl Plan {
     fn new(input: &str) -> Plan {
@@ -206,7 +206,7 @@ impl Plan {
             .iter()
             .map(|map| Map::new(map))
             .collect::<Vec<Map>>();
-        let mut maps = std::collections::HashMap::new();
+        let mut maps = HashMap::new();
         for map in maps_vec {
             maps.insert(map.input.clone(), map.clone());
         }
@@ -229,60 +229,87 @@ impl Plan {
     }
 }
 
-fn find_next_last_two_maps(map_n_minus_one: &Map, map_n: &Map, start: &u32) -> Option(u32) {
+fn find_next_last_two_maps(map_n_minus_one: &Map, map_n: &Map, start: &u32) -> Option<u32> {
     let next_top = map_n_minus_one.find_next(start);
     // let next_low = map_n_minus_one.reverse_lookup(map_n.find_next(map_n_minus_one.lookup(start)));
-    let next_low = map_n.find_next(&map_n_minus_one.lookup(start)) {
-        Some(key) => Some(map_n_minus_one.reverse_lookup(key)),
+    let next_low = match map_n.find_next(&map_n_minus_one.lookup(start)) {
+        Some(key) => Some(map_n_minus_one.reverse_lookup(&key)),
         None => None,
-    }
+    };
     match (next_top, next_low) {
-        (Some(nk), Some(lk)) => nk.min(lk),
-        (Some(nk), None) => nk,
-        (None, Some(lk)) => lk,
+        (Some(nk), Some(lk)) => Some(nk.min(lk)),
+        (Some(nk), None) => Some(nk),
+        (None, Some(lk)) => Some(lk),
         (None, None) => None,
     }
 }
 
 fn combine_last_two_maps(map_n_minus_one: &Map, map_n: &Map) -> Map {
-    let input = map_n_minus_one.input;
-    let output = map_n.output;
-    let mut start = map_n_minus_one.maps.iter().map(|m| m.dest_start).min().unwrap();
+    let input = map_n_minus_one.input.clone();
+    let output = map_n.output.clone();
+    let mut start = map_n_minus_one
+        .maps
+        .iter()
+        .map(|m| m.dest_start)
+        .min()
+        .unwrap();
     let mut maps = Vec::new();
     loop {
         let next = match find_next_last_two_maps(map_n_minus_one, map_n, &start) {
             Some(next) => next,
-            None => {break;}
-        }
+            None => {
+                break;
+            }
+        };
         let range = next - start;
         let dest_start = map_n.lookup(&map_n_minus_one.lookup(&start));
-        maps.push(RangeMap{dest_start, source_start: start, range});
+        maps.push(RangeMap {
+            dest_start,
+            source_start: start,
+            range,
+        });
         start = next;
     }
-    Map{input, output, maps}
-}
-
-fn pop_last_2_maps(&mut maps: std::collections::HashMap<Map>, start: &str, dest: &str) -> (Map, Map) {
-
-}
-fn flatten_map(maps: std::collections::HashMap<Map>, start: &str, dest:&str) -> Map {
-    while maps.len() > 1{
-        (map_n_minus_one, map_n) = pop_last_2_maps(&mut maps, start: &str, dest: &str);
+    Map {
+        input,
+        output,
+        maps,
     }
-    // let mut key = start;
-    // while key != dest {
-    //     let map = maps[key].unwrap();
-    // }
+}
+
+fn find_last_2_keys(maps: &HashMap<String, Map>, start: &str, dest: &str) -> (String, String) {
+    let mut key_n = maps[start].output.clone();
+    let mut key_n_minus_one = start.to_string();
+    while key_n != dest {
+        key_n_minus_one = key_n.clone();
+        key_n = maps[&key_n].output.clone();
+    }
+    (key_n, key_n_minus_one)
+}
+
+fn pop_last_2_maps(maps: &mut HashMap<String, Map>, start: &str, dest: &str) -> (Map, Map) {
+    let (key_n, key_n_minus_one) = find_last_2_keys(&maps, start, dest);
+    let map_n_minus_one = maps.remove(&key_n_minus_one).unwrap();
+    let map_n = maps.remove(&key_n).unwrap();
+    (map_n_minus_one, map_n)
+}
+
+fn flatten_map(maps: &mut HashMap<String, Map>, start: &str, dest: &str) {
+    while maps.len() > 1 {
+        let (map_n_minus_one, map_n) = pop_last_2_maps(maps, start, dest);
+        let new_last_map = combine_last_two_maps(&map_n_minus_one, &map_n);
+        maps.insert(new_last_map.input.clone(), new_last_map);
+    }
 }
 
 #[derive(Debug)]
 struct PlanB {
     seeds: Vec<SeedRange>,
-    maps: std::collections::HashMap<String, Map>,
+    map: Map,
 }
 
 impl PlanB {
-    fn new(input: &str) -> Plan {
+    fn new(input: &str, source: &str, dest: &str) -> PlanB {
         let maps = find_maps(input);
         assert!(is_seeds(&maps[0]));
         let seeds = SeedRange::make_vec(&maps[0]);
@@ -290,26 +317,39 @@ impl PlanB {
             .iter()
             .map(|map| Map::new(map))
             .collect::<Vec<Map>>();
-        let mut maps = std::collections::HashMap::new();
+        let mut maps = HashMap::new();
         for map in maps_vec {
             maps.insert(map.input.clone(), map.clone());
         }
-        Plan { seeds, maps }
+        flatten_map(&mut maps, source, dest);
+        let map = maps.remove(source).unwrap();
+        PlanB { seeds, map }
     }
 
-    fn map_seeds(&self, dest: &String) -> Vec<u32> {
-        let mut out = Vec::new();
-        for seed in &self.seeds.seeds {
-            let mut key = &"seed".to_string();
-            let mut val = *seed;
-            while key != dest {
-                let map = &self.maps[key];
-                val = map.lookup(&val);
-                key = &map.output;
+    fn find_min_location_from_seed_range(&self, seed_range: &SeedRange) -> u32 {
+        let mut key = seed_range.start;
+        let mut min_location = self.map.lookup(&key);
+        loop {
+            key = match self.map.find_next(&key) {
+                Some(k) => k,
+                None => {
+                    break;
+                }
+            };
+            if key - seed_range.start > seed_range.range - 1 {
+                break;
             }
-            out.push(val);
+            min_location = min_location.min(self.map.lookup(&key));
         }
-        out
+        min_location
+    }
+
+    fn find_min_location(&self) -> u32 {
+        self.seeds
+            .iter()
+            .map(|r| self.find_min_location_from_seed_range(r))
+            .min()
+            .unwrap()
     }
 }
 
@@ -326,15 +366,15 @@ fn day_5a(input: &str) -> u32 {
 }
 
 fn day_5b(input: &str) -> u32 {
-    *Plan::new_b(input)
-        .map_seeds(&"location".to_string())
-        .iter()
-        .min()
-        .unwrap()
+    PlanB::new(input, "seed", "location").find_min_location()
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use crate::day_5::flatten_map;
+
     #[test]
     fn test1() {
         let input = r#"seeds: 79 14 55 13
@@ -372,5 +412,24 @@ humidity-to-location map:
 56 93 4"#;
         assert_eq!(super::day_5a(input), 35);
         assert_eq!(super::day_5b(input), 46);
+    }
+    #[test]
+    fn test_flatten_map() {
+        let input = r#" seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15"#;
+        let input = super::find_maps(input);
+        let mut maps = HashMap::new();
+        maps.insert("seed".to_string(), super::Map::new(&input[0]));
+        maps.insert("soil".to_string(), super::Map::new(&input[1]));
+        dbg!(&maps);
+        flatten_map(&mut maps, "seed", "fertilizer");
+        assert_eq!(maps.len(), 1);
+        dbg!(&maps["seed"]);
     }
 }
