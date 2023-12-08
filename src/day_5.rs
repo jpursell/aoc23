@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 pub fn day_5() {
     let input = include_str!("day_5_data.txt");
@@ -37,8 +37,8 @@ fn find_maps(input: &str) -> Vec<Vec<&str>> {
 
 #[derive(Debug)]
 struct SeedRange {
-    start: u32,
-    range: u32,
+    start: u64,
+    range: u64,
 }
 impl SeedRange {
     fn make_vec(map: &Vec<&str>) -> Vec<SeedRange> {
@@ -47,8 +47,8 @@ impl SeedRange {
         let (_, line) = line.split_once(": ").unwrap();
         let nums = line
             .split_whitespace()
-            .map(|s| s.parse::<u32>().unwrap())
-            .collect::<Vec<u32>>();
+            .map(|s| s.parse::<u64>().unwrap())
+            .collect::<Vec<u64>>();
         assert_eq!(nums.len() % 2, 0);
         let mut seeds = Vec::new();
         for i in 0..nums.len() / 2 {
@@ -62,7 +62,7 @@ impl SeedRange {
 
 #[derive(Debug)]
 struct Seeds {
-    seeds: Vec<u32>,
+    seeds: Vec<u64>,
 }
 
 impl Seeds {
@@ -72,7 +72,7 @@ impl Seeds {
         let (_, line) = line.split_once(": ").unwrap();
         let mut seeds = Vec::new();
         for num in line.split_whitespace() {
-            seeds.push(num.parse::<u32>().unwrap());
+            seeds.push(num.parse::<u64>().unwrap());
         }
         Seeds { seeds }
     }
@@ -80,48 +80,48 @@ impl Seeds {
 
 #[derive(Copy, Clone, Debug)]
 struct RangeMap {
-    dest_start: u32,
-    source_start: u32,
-    range: u32,
+    dest_start: u64,
+    source_start: u64,
+    range: u64,
 }
 
 impl RangeMap {
     fn new(line: &str) -> RangeMap {
         let nums = line.split_whitespace().collect::<Vec<&str>>();
         assert_eq!(nums.len(), 3);
-        let dest_start = nums[0].parse::<u32>().unwrap();
-        let source_start = nums[1].parse::<u32>().unwrap();
-        let range = nums[2].parse::<u32>().unwrap();
+        let dest_start = nums[0].parse::<u64>().unwrap();
+        let source_start = nums[1].parse::<u64>().unwrap();
+        let range = nums[2].parse::<u64>().unwrap();
         RangeMap {
             dest_start,
             source_start,
             range,
         }
     }
-    fn get_offset(&self) -> u32 {
-        return self.dest_start - self.source_start;
+    fn get_offset(&self) -> i64 {
+        return self.dest_start as i64 - self.source_start as i64;
     }
-    fn contains_key(&self, key: &u32) -> bool {
+    fn contains_key(&self, key: &u64) -> bool {
         if key < &self.source_start {
             return false;
         }
         key - self.source_start <= self.range - 1
     }
-    fn contains_dest(&self, dest: &u32) -> bool {
+    fn contains_dest(&self, dest: &u64) -> bool {
         if dest < &self.dest_start {
             return false;
         }
         dest - self.dest_start <= self.range - 1
     }
-    fn lookup(&self, key: &u32) -> u32 {
+    fn lookup(&self, key: &u64) -> u64 {
         assert!(self.contains_key(key));
-        key + self.get_offset()
+        (*key as i64 + self.get_offset()) as u64
     }
-    fn reverse_lookup(&self, dest: &u32) -> u32 {
+    fn reverse_lookup(&self, dest: &u64) -> u64 {
         assert!(self.contains_dest(dest));
-        dest - self.get_offset()
+        (*dest as i64 - self.get_offset()) as u64
     }
-    fn one_beyond(&self) -> u32 {
+    fn one_beyond(&self) -> u64 {
         self.source_start + self.range
     }
 }
@@ -149,7 +149,7 @@ impl Map {
         }
     }
 
-    fn lookup(&self, key: &u32) -> u32 {
+    fn lookup(&self, key: &u64) -> u64 {
         for map in self.maps.iter() {
             if map.contains_key(key) {
                 return map.lookup(key);
@@ -158,7 +158,7 @@ impl Map {
         *key
     }
 
-    fn reverse_lookup(&self, dest: &u32) -> u32 {
+    fn reverse_lookup(&self, dest: &u64) -> u64 {
         for map in self.maps.iter() {
             if map.contains_dest(dest) {
                 return map.reverse_lookup(dest);
@@ -167,7 +167,7 @@ impl Map {
         *dest
     }
 
-    fn find_next(&self, key: &u32) -> Option<u32> {
+    fn find_next(&self, key: &u64) -> Option<u64> {
         for map in self.maps.iter() {
             if map.contains_key(key) {
                 return Some(map.one_beyond());
@@ -181,13 +181,13 @@ impl Map {
             .min()
     }
 
-    fn get_offset(&self, key: &u32) -> u32 {
+    fn find_transitions(&self) -> BTreeSet<u64> {
+        let mut vals = BTreeSet::new();
         for map in self.maps.iter() {
-            if map.contains_key(key) {
-                return map.get_offset();
-            }
+            vals.insert(map.source_start);
+            vals.insert(map.source_start + map.range);
         }
-        0
+        vals
     }
 }
 
@@ -213,7 +213,7 @@ impl Plan {
         Plan { seeds, maps }
     }
 
-    fn map_seeds(&self, dest: &String) -> Vec<u32> {
+    fn map_seeds(&self, dest: &String) -> Vec<u64> {
         let mut out = Vec::new();
         for seed in &self.seeds.seeds {
             let mut key = &"seed".to_string();
@@ -229,38 +229,23 @@ impl Plan {
     }
 }
 
-fn find_next_last_two_maps(map_n_minus_one: &Map, map_n: &Map, start: &u32) -> Option<u32> {
-    let next_top = map_n_minus_one.find_next(start);
-    // let next_low = map_n_minus_one.reverse_lookup(map_n.find_next(map_n_minus_one.lookup(start)));
-    let next_low = match map_n.find_next(&map_n_minus_one.lookup(start)) {
-        Some(key) => Some(map_n_minus_one.reverse_lookup(&key)),
-        None => None,
-    };
-    match (next_top, next_low) {
-        (Some(nk), Some(lk)) => Some(nk.min(lk)),
-        (Some(nk), None) => Some(nk),
-        (None, Some(lk)) => Some(lk),
-        (None, None) => None,
-    }
-}
-
 fn combine_last_two_maps(map_n_minus_one: &Map, map_n: &Map) -> Map {
     let input = map_n_minus_one.input.clone();
     let output = map_n.output.clone();
-    let mut start = map_n_minus_one
-        .maps
-        .iter()
-        .map(|m| m.dest_start)
-        .min()
-        .unwrap();
+    let mut transitions = map_n_minus_one.find_transitions();
+    transitions.append(
+        &mut map_n
+            .find_transitions()
+            .iter()
+            .map(|x| map_n_minus_one.reverse_lookup(x))
+            .collect::<BTreeSet<u64>>(),
+    );
+    let mut transitions = transitions.into_iter().collect::<Vec<u64>>();
+    transitions.sort();
     let mut maps = Vec::new();
-    loop {
-        let next = match find_next_last_two_maps(map_n_minus_one, map_n, &start) {
-            Some(next) => next,
-            None => {
-                break;
-            }
-        };
+    for window in transitions.windows(2) {
+        let start = window[0];
+        let next = window[1];
         let range = next - start;
         let dest_start = map_n.lookup(&map_n_minus_one.lookup(&start));
         maps.push(RangeMap {
@@ -268,7 +253,6 @@ fn combine_last_two_maps(map_n_minus_one: &Map, map_n: &Map) -> Map {
             source_start: start,
             range,
         });
-        start = next;
     }
     Map {
         input,
@@ -280,7 +264,7 @@ fn combine_last_two_maps(map_n_minus_one: &Map, map_n: &Map) -> Map {
 fn find_last_2_keys(maps: &HashMap<String, Map>, start: &str, dest: &str) -> (String, String) {
     let mut key_n = maps[start].output.clone();
     let mut key_n_minus_one = start.to_string();
-    while key_n != dest {
+    while maps[&key_n].output != dest {
         key_n_minus_one = key_n.clone();
         key_n = maps[&key_n].output.clone();
     }
@@ -326,7 +310,7 @@ impl PlanB {
         PlanB { seeds, map }
     }
 
-    fn find_min_location_from_seed_range(&self, seed_range: &SeedRange) -> u32 {
+    fn find_min_location_from_seed_range(&self, seed_range: &SeedRange) -> u64 {
         let mut key = seed_range.start;
         let mut min_location = self.map.lookup(&key);
         loop {
@@ -344,7 +328,7 @@ impl PlanB {
         min_location
     }
 
-    fn find_min_location(&self) -> u32 {
+    fn find_min_location(&self) -> u64 {
         self.seeds
             .iter()
             .map(|r| self.find_min_location_from_seed_range(r))
@@ -357,7 +341,7 @@ fn is_seeds(map: &Vec<&str>) -> bool {
     return map.len() == 1;
 }
 
-fn day_5a(input: &str) -> u32 {
+fn day_5a(input: &str) -> u64 {
     *Plan::new(input)
         .map_seeds(&"location".to_string())
         .iter()
@@ -365,16 +349,12 @@ fn day_5a(input: &str) -> u32 {
         .unwrap()
 }
 
-fn day_5b(input: &str) -> u32 {
+fn day_5b(input: &str) -> u64 {
     PlanB::new(input, "seed", "location").find_min_location()
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use crate::day_5::flatten_map;
-
     #[test]
     fn test1() {
         let input = r#"seeds: 79 14 55 13
@@ -412,24 +392,5 @@ humidity-to-location map:
 56 93 4"#;
         assert_eq!(super::day_5a(input), 35);
         assert_eq!(super::day_5b(input), 46);
-    }
-    #[test]
-    fn test_flatten_map() {
-        let input = r#" seed-to-soil map:
-50 98 2
-52 50 48
-
-soil-to-fertilizer map:
-0 15 37
-37 52 2
-39 0 15"#;
-        let input = super::find_maps(input);
-        let mut maps = HashMap::new();
-        maps.insert("seed".to_string(), super::Map::new(&input[0]));
-        maps.insert("soil".to_string(), super::Map::new(&input[1]));
-        dbg!(&maps);
-        flatten_map(&mut maps, "seed", "fertilizer");
-        assert_eq!(maps.len(), 1);
-        dbg!(&maps["seed"]);
     }
 }
