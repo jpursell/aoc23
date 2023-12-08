@@ -3,7 +3,7 @@ use std::str::FromStr;
 pub fn day_6() {
     let input = include_str!("day_6_data.txt");
     println!("day 6 a {}", day_6_a(input));
-    // println!("day 6 b {}", day_6_b(input));
+    println!("day 6 b {}", day_6_b(input));
 }
 
 #[derive(Debug)]
@@ -16,8 +16,8 @@ impl Race {
     fn num_ways_to_win(&self) -> u64 {
         // this is just the quadratic formula with
         // a == 1, b == -t, c == d
-        let d = self.distance as f32;
-        let t = self.time as f32;
+        let d = self.distance as f64;
+        let t = self.time as f64;
         let inner = (t * t - 4.0 * d).sqrt();
         let low = (t - inner) / 2.0;
         let mut low_ceil = low.ceil();
@@ -26,7 +26,7 @@ impl Race {
         }
         let high = (t + inner) / 2.0;
         let mut high_floor = high.floor();
-        if  high_floor == high {
+        if high_floor == high {
             high_floor -= 1.0;
         }
         high_floor as u64 - low_ceil as u64 + 1
@@ -77,11 +77,52 @@ impl FromStr for RaceHistory {
 
 impl RaceHistory {
     fn num_ways_to_win(&self) -> u64 {
-        // TODO finish this statement
         self.races
             .iter()
             .map(|race| race.num_ways_to_win())
             .product()
+    }
+}
+
+#[derive(Debug)]
+struct RaceHistoryB {
+    race: Race,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct ParseRaceHistoryBError;
+
+impl FromStr for RaceHistoryB {
+    type Err = ParseRaceHistoryBError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let lines = s.lines().collect::<Vec<&str>>();
+        assert_eq!(lines.len(), 2);
+
+        let (_, time) = lines[0].split_once("Time:").unwrap();
+        let time = time
+            .chars()
+            .filter(|c| c.is_numeric())
+            .collect::<String>()
+            .parse::<u64>()
+            .unwrap();
+
+        let (_, distance) = lines[1].split_once("Distance:").unwrap();
+        let distance = distance
+            .chars()
+            .filter(|c| c.is_numeric())
+            .collect::<String>()
+            .parse::<u64>()
+            .unwrap();
+
+        let race = Race { time, distance };
+        Ok(RaceHistoryB { race })
+    }
+}
+
+impl RaceHistoryB {
+    fn num_ways_to_win(&self) -> u64 {
+        self.race.num_ways_to_win()
     }
 }
 
@@ -92,8 +133,8 @@ fn day_6_a(input: &str) -> u64 {
         .num_ways_to_win()
 }
 
-fn day_6_b(input: &str) -> u32 {
-    0
+fn day_6_b(input: &str) -> u64 {
+    dbg!(input.parse::<RaceHistoryB>().unwrap()).num_ways_to_win()
 }
 
 #[cfg(test)]
