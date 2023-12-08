@@ -56,7 +56,8 @@ impl FromStr for RaceHistory {
 
 impl RaceHistory {
     fn num_ways_to_win(&self) -> u64 {
-        0
+        // TODO finish this statement
+        self.races.map(|race| race.num_ways_to_win())
     }
 }
 
