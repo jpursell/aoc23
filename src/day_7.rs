@@ -1,23 +1,23 @@
-use std::{convert::TryFrom, str::FromStr};
 use itertools::Itertools;
+use std::{convert::TryFrom, str::FromStr};
 
 use counter::Counter;
 
 #[derive(Hash, Debug, Eq, PartialEq, PartialOrd, Ord)]
 enum Card {
-    A,
-    K,
-    Q,
-    J,
-    T,
-    C9,
-    C8,
-    C7,
-    C6,
-    C5,
-    C4,
-    C3,
     C2,
+    C3,
+    C4,
+    C5,
+    C6,
+    C7,
+    C8,
+    C9,
+    T,
+    J,
+    Q,
+    K,
+    A,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -30,7 +30,7 @@ impl TryFrom<char> for Card {
         match c {
             'A' => Ok(Card::A),
             'K' => Ok(Card::K),
-            'Q' => Ok(Card::J),
+            'Q' => Ok(Card::Q),
             'J' => Ok(Card::J),
             'T' => Ok(Card::T),
             '9' => Ok(Card::C9),
@@ -46,14 +46,15 @@ impl TryFrom<char> for Card {
     }
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum HandType {
-    FiveOAK,
-    FourOAK,
-    FullHouse,
-    ThreeOAK,
-    TwoPair,
-    OnePair,
     HighCard,
+    OnePair,
+    TwoPair,
+    ThreeOAK,
+    FullHouse,
+    FourOAK,
+    FiveOAK,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -74,18 +75,38 @@ struct Hand {
 
 impl Hand {
     fn determine_hand_type(&self) -> Result<HandType, ParseHandTypeError> {
-        if self.cards.len() != 5 {return Err(ParseHandTypeError);}
-        let most_common = self.cards.iter().collect::<Counter<_>>().most_common_ordered();
+        if self.cards.len() != 5 {
+            return Err(ParseHandTypeError);
+        }
+        let most_common = self
+            .cards
+            .iter()
+            .collect::<Counter<_>>()
+            .most_common_ordered();
         let signature = most_common
             .iter()
-            .map(|(_card, count)| {count})
+            .map(|(_card, count)| count)
             .collect::<Vec<_>>();
         match signature.len() {
             1 => Ok(HandType::FiveOAK),
-        }
-        match signature.iter().collect_tuple() {
-            (5) => Ok(HandType::FiveOAK),
-            (4,1) => Ok(HandType::FourOAK),
+            2 => match signature.iter().collect_tuple().unwrap() {
+                (4, 1) => Ok(HandType::FourOAK),
+                (3, 2) => Ok(HandType::FullHouse),
+                _ => Err(ParseHandTypeError),
+            },
+            3 => match signature.iter().collect_tuple().unwrap() {
+                (3, 1, 1) => Ok(HandType::ThreeOAK),
+                (2, 2, 1) => Ok(HandType::TwoPair),
+                _ => Err(ParseHandTypeError),
+            },
+            4 => match signature.iter().collect_tuple().unwrap() {
+                (2, 1, 1, 1) => Ok(HandType::OnePair),
+                _ => Err(ParseHandTypeError),
+            },
+            5 => match signature.iter().collect_tuple().unwrap() {
+                (1, 1, 1, 1, 1) => Ok(HandType::HighCard),
+                _ => Err(ParseHandTypeError),
+            },
             _ => Err(ParseHandTypeError),
         }
     }
@@ -116,7 +137,7 @@ struct Bid {
 
 #[derive(Debug)]
 struct Game {
-    hands: Vec<(Hand, Bid)>,
+    hands: Vec<(HandType, Hand, Bid)>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -125,19 +146,35 @@ struct ParseGameError;
 impl FromStr for Game {
     type Err = ParseGameError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let hands = s
+        let mut hands = s
             .lines()
             .map(|line| {
                 let (hand, bid) = line.split_once(" ").unwrap();
+                let hand = hand.parse::<Hand>().unwrap();
+                let hand_type = hand
+                    .determine_hand_type()
+                    .expect(format!("failed to determine hand type for {:?}", hand).as_str());
                 (
-                    hand.parse::<Hand>().unwrap(),
+                    hand_type,
+                    hand,
                     Bid {
                         amount: bid.parse::<u64>().unwrap(),
                     },
                 )
             })
             .collect::<Vec<_>>();
+        hands.sort();
         Ok(Game { hands })
+    }
+}
+
+impl Game {
+    fn total_winnings(&self) -> u64 {
+        self.hands
+            .iter()
+            .enumerate()
+            .map(|(rank, (_, _, bid))| bid.amount * (rank as u64 + 1))
+            .sum()
     }
 }
 
@@ -147,12 +184,12 @@ pub fn day_7() {
     println!("day 7 b {}", day_7_b(input));
 }
 
-fn day_7_a(input: &str) -> u32 {
-    dbg!(input.parse::<Game>());
-    0
+fn day_7_a(input: &str) -> u64 {
+    let game = input.parse::<Game>().unwrap();
+    game.total_winnings()
 }
 
-fn day_7_b(input: &str) -> u32 {
+fn day_7_b(input: &str) -> u64 {
     0
 }
 
@@ -167,7 +204,7 @@ T55J5 684
 KK677 28
 KTJJT 220
 QQQJA 483"#;
-        assert_eq!(super::day_7_a(input), 0);
+        assert_eq!(super::day_7_a(input), 6440);
         assert_eq!(super::day_7_b(input), 0);
     }
 
@@ -189,19 +226,19 @@ QQQJA 483"#;
             Card::C2,
         ];
         let sorted_arr = vec![
-            Card::A,
-            Card::K,
-            Card::Q,
-            Card::J,
-            Card::T,
-            Card::C9,
-            Card::C8,
-            Card::C7,
-            Card::C6,
-            Card::C5,
-            Card::C4,
-            Card::C3,
             Card::C2,
+            Card::C3,
+            Card::C4,
+            Card::C5,
+            Card::C6,
+            Card::C7,
+            Card::C8,
+            Card::C9,
+            Card::T,
+            Card::J,
+            Card::Q,
+            Card::K,
+            Card::A,
         ];
         arr.sort();
         assert_eq!(arr, sorted_arr);
