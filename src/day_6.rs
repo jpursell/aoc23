@@ -134,7 +134,7 @@ fn day_6_a(input: &str) -> u64 {
 }
 
 fn day_6_b(input: &str) -> u64 {
-    dbg!(input.parse::<RaceHistoryB>().unwrap()).num_ways_to_win()
+    input.parse::<RaceHistoryB>().unwrap().num_ways_to_win()
 }
 
 #[cfg(test)]
