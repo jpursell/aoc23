@@ -1,4 +1,5 @@
 use std::{convert::TryFrom, str::FromStr};
+use itertools::Itertools;
 
 use counter::Counter;
 
@@ -72,25 +73,21 @@ struct Hand {
 }
 
 impl Hand {
-    fn is_five_of_a_kind(&self) -> bool {
-        assert_eq!(self.cards.len(), 5);
-        self.cards[1..].iter().all(|card| *card == self.cards[0])
-    }
-    fn is_four_of_a_kind(&self) -> bool {
-        assert_eq!(self.cards.len(), 5);
-        let count = self.cards.iter().collect::<Counter<_>>();
-        if count.len() == 2 &&
-        self.cards[1..].iter().all(|card| *card == self.cards[0])
-    }
     fn determine_hand_type(&self) -> Result<HandType, ParseHandTypeError> {
         if self.cards.len() != 5 {return Err(ParseHandTypeError);}
-        if self.is_five_of_a_kind() {
-            return Ok(HandType::FiveOAK);
-        } else if self.is_four_of_a_kind() { 
-            return Ok(HandType::FourOAK);
+        let most_common = self.cards.iter().collect::<Counter<_>>().most_common_ordered();
+        let signature = most_common
+            .iter()
+            .map(|(_card, count)| {count})
+            .collect::<Vec<_>>();
+        match signature.len() {
+            1 => Ok(HandType::FiveOAK),
         }
-        // TODO add other hands
-        Err(ParseHandTypeError)
+        match signature.iter().collect_tuple() {
+            (5) => Ok(HandType::FiveOAK),
+            (4,1) => Ok(HandType::FourOAK),
+            _ => Err(ParseHandTypeError),
+        }
     }
 }
 
