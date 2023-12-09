@@ -5,6 +5,7 @@ use counter::Counter;
 
 #[derive(Hash, Debug, Eq, PartialEq, PartialOrd, Ord)]
 enum Card {
+    J,
     C2,
     C3,
     C4,
@@ -14,7 +15,6 @@ enum Card {
     C8,
     C9,
     T,
-    J,
     Q,
     K,
     A,
@@ -78,6 +78,10 @@ impl Hand {
         if self.cards.len() != 5 {
             return Err(ParseHandTypeError);
         }
+        let non_j_cards = self
+        .cards
+        .iter()
+        .filter(|c|{});
         let most_common = self
             .cards
             .iter()
