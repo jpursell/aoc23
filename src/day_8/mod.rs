@@ -6,6 +6,6 @@ use b::run_b;
 
 pub fn run() {
     let input = include_str!("data.txt");
-    println!("day n a {}", run_a(input));
-    println!("day n b {}", run_b(input));
+    println!("day 8 a {}", run_a(input));
+    println!("day 8 b {}", run_b(input));
 }
