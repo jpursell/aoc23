@@ -81,16 +81,19 @@ impl Hand {
         let non_j_cards = self
         .cards
         .iter()
-        .filter(|c|{});
-        let most_common = self
-            .cards
+        .filter(|c|{**c != Card::J})
+        .collect::<Vec<_>>();
+        let most_common = non_j_cards
             .iter()
             .collect::<Counter<_>>()
             .most_common_ordered();
-        let signature = most_common
-            .iter()
+        let mut signature = most_common
+            .into_iter()
             .map(|(_card, count)| count)
             .collect::<Vec<_>>();
+        let num_j = 5 - non_j_cards.len();
+        signature[0] += num_j;
+
         match signature.len() {
             1 => Ok(HandType::FiveOAK),
             2 => match signature.iter().collect_tuple().unwrap() {
@@ -182,19 +185,9 @@ impl Game {
     }
 }
 
-pub fn day_7() {
-    let input = include_str!("day_7_data.txt");
-    println!("day 7 a {}", day_7_a(input));
-    println!("day 7 b {}", day_7_b(input));
-}
-
-fn day_7_a(input: &str) -> u64 {
+pub fn day_7_b(input: &str) -> u64 {
     let game = input.parse::<Game>().unwrap();
     game.total_winnings()
-}
-
-fn day_7_b(input: &str) -> u64 {
-    0
 }
 
 #[cfg(test)]
@@ -208,7 +201,6 @@ T55J5 684
 KK677 28
 KTJJT 220
 QQQJA 483"#;
-        assert_eq!(super::day_7_a(input), 6440);
         assert_eq!(super::day_7_b(input), 5905);
     }
 
@@ -230,6 +222,7 @@ QQQJA 483"#;
             Card::C2,
         ];
         let sorted_arr = vec![
+            Card::J,
             Card::C2,
             Card::C3,
             Card::C4,
@@ -239,7 +232,6 @@ QQQJA 483"#;
             Card::C8,
             Card::C9,
             Card::T,
-            Card::J,
             Card::Q,
             Card::K,
             Card::A,
