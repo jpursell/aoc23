@@ -23,6 +23,26 @@ struct Map {
     nodes: HashMap<String, (String, String)>,
 }
 
+impl Map {
+    fn count_steps(&self) -> u64 {
+        let start = "AAA".to_string();
+        let end = "ZZZ".to_string();
+        let mut position = &start;
+        let mut steps = 0;
+        for instruction in self.instructions.iter().cycle() {
+            if *position == end {
+                break;
+            }
+            position = match instruction {
+                Direction::L => &self.nodes[position].0,
+                Direction::R => &self.nodes[position].1,
+            };
+            steps += 1;
+        }
+        steps
+    }
+}
+
 impl FromStr for Map {
     type Err = &'static str;
 
@@ -36,15 +56,18 @@ impl FromStr for Map {
             .collect::<Vec<_>>();
 
         let nodes = val
-        .lines()
-        .skip(2)
-        .map(|line| {
-            let (input, output) = line.split_once(" = ").unwrap();
-            let output = &output[1..output.len()-1];
-            let (left_output, right_output) = output.split_once(", ").unwrap();
-            (input.to_string(), (left_output.to_string(), right_output.to_string()))
-        })
-        .collect::<HashMap<_, _>>();
+            .lines()
+            .skip(2)
+            .map(|line| {
+                let (input, output) = line.split_once(" = ").unwrap();
+                let output = &output[1..output.len() - 1];
+                let (left_output, right_output) = output.split_once(", ").unwrap();
+                (
+                    input.to_string(),
+                    (left_output.to_string(), right_output.to_string()),
+                )
+            })
+            .collect::<HashMap<_, _>>();
 
         Ok(Map {
             instructions,
@@ -54,8 +77,7 @@ impl FromStr for Map {
 }
 
 pub fn run(input: &str) -> u64 {
-    dbg!(input.parse::<Map>());
-    0
+    input.parse::<Map>().unwrap().count_steps()
 }
 
 #[cfg(test)]
