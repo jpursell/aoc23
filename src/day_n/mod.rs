@@ -1,11 +1,11 @@
-mod day_na;
-mod day_nb;
+mod a;
+mod b;
 
-use day_na::day_n_a;
-use day_nb::day_n_b;
+use a::run_a;
+use b::run_b;
 
 pub fn day_n() {
-    let input = include_str!("day_n_data.txt");
-    println!("day n a {}", day_n_a(input));
-    println!("day n b {}", day_n_b(input));
+    let input = include_str!("data.txt");
+    println!("day n a {}", run_a(input));
+    println!("day n b {}", run_b(input));
 }
