@@ -35,13 +35,12 @@ impl Map {
             if position.iter().all(|key| key.ends_with("Z")) {
                 break;
             }
-            position = position
-                .iter()
-                .map(|pos| match instruction {
+            position.iter_mut().for_each(|pos| {
+                *pos = match instruction {
                     Direction::L => &self.nodes[*pos].0,
                     Direction::R => &self.nodes[*pos].1,
-                })
-                .collect::<Vec<_>>();
+                };
+            });
             steps += 1;
         }
         steps
