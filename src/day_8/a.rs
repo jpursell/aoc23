@@ -1,4 +1,60 @@
+use std::{collections::HashMap, str::FromStr};
+
+#[derive(Debug)]
+enum Direction {
+    L,
+    R,
+}
+
+impl TryFrom<char> for Direction {
+    type Error = &'static str;
+    fn try_from(c: char) -> Result<Self, <Self as TryFrom<char>>::Error> {
+        match c {
+            'L' => Ok(Direction::L),
+            'R' => Ok(Direction::R),
+            _ => Err("Got bad direction char"),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Map {
+    instructions: Vec<Direction>,
+    nodes: HashMap<String, (String, String)>,
+}
+
+impl FromStr for Map {
+    type Err = &'static str;
+
+    fn from_str(val: &str) -> Result<Map, <Self as FromStr>::Err> {
+        let instructions = val
+            .lines()
+            .next()
+            .unwrap()
+            .chars()
+            .map(|c| Direction::try_from(c).unwrap())
+            .collect::<Vec<_>>();
+
+        let nodes = val
+        .lines()
+        .skip(2)
+        .map(|line| {
+            let (input, output) = line.split_once(" = ").unwrap();
+            let output = &output[1..output.len()-1];
+            let (left_output, right_output) = output.split_once(", ").unwrap();
+            (input.to_string(), (left_output.to_string(), right_output.to_string()))
+        })
+        .collect::<HashMap<_, _>>();
+
+        Ok(Map {
+            instructions,
+            nodes,
+        })
+    }
+}
+
 pub fn run(input: &str) -> u64 {
+    dbg!(input.parse::<Map>());
     0
 }
 
@@ -7,6 +63,6 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 0);
+        assert_eq!(super::run(input), 6);
     }
 }
