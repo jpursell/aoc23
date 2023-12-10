@@ -92,7 +92,12 @@ impl Hand {
             .map(|(_card, count)| count)
             .collect::<Vec<_>>();
         let num_j = 5 - non_j_cards.len();
-        signature[0] += num_j;
+        if signature.len() == 0 {
+            assert_eq!(num_j, 5);
+            signature.push(num_j);
+        } else {
+            signature[0] += num_j;
+        }
 
         match signature.len() {
             1 => Ok(HandType::FiveOAK),
