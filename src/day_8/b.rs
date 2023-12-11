@@ -43,14 +43,14 @@ impl<'a> History<'a> {
         self.complete
     }
     fn cycle_len(&self) -> usize {
-        self.instruction_len
+        self.nodes.len() - self.cycle_start() - 1
     }
     fn cycle_start(&self) -> usize {
-        (self.nodes.len() - 1) % self.cycle_len()
+        (self.nodes.len() - 1) % self.instruction_len
     }
-    fn update(&self) -> bool {
+    fn update(&mut self) {
         if self.nodes.len() < self.instruction_len + 1 {
-            return false;
+            return;
         }
         let pos = self.cycle_start();
         let old_node = self.nodes[pos];
@@ -62,44 +62,39 @@ impl<'a> History<'a> {
                 old_node, latest_node, pos
             );
         }
-        ret
+        self.complete = ret;
     }
 }
 
 #[derive(Debug)]
-struct Historian<'a> {
-    history: History<'a>,
+struct Historian {
     pos: usize,
     cycle: usize,
-    cycle_start: usize,
     cycle_len: usize,
     end_pos: Vec<usize>,
 }
 
-impl<'a> Historian<'a> {
-    fn new(history: History<'a>) -> Self {
+impl Historian {
+    fn new(history: History) -> Self {
         assert!(history.check());
         let cycle_len = history.cycle_len();
-        let cycle_start = history.cycle_start();
         let end_pos = history
             .nodes
             .iter()
             .enumerate()
-            .filter(|(num, key)| key.ends_with("Z"))
-            .map(|(num, key)| num)
+            .filter(|(_num, key)| key.ends_with("Z"))
+            .map(|(num, _key)| num)
             .collect::<Vec<usize>>();
         Historian {
-            history,
             pos: 0,
             cycle: 0,
-            cycle_start,
             cycle_len,
             end_pos,
         }
     }
 }
 
-impl<'a> TryFrom<History<'a>> for Historian<'a> {
+impl<'a> TryFrom<History<'a>> for Historian {
     type Error = &'static str;
     fn try_from(hist: History<'a>) -> Result<Self, <Self as TryFrom<History<'a>>>::Error> {
         if !hist.check() {
@@ -110,7 +105,7 @@ impl<'a> TryFrom<History<'a>> for Historian<'a> {
     }
 }
 
-impl Iterator for Historian<'_> {
+impl Iterator for Historian {
     type Item = usize;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         let ret = Some(self.end_pos[self.pos] + self.cycle_len * self.cycle);
@@ -130,73 +125,7 @@ struct Map {
 }
 
 impl Map {
-    // fn find_loop(&self, start: &str, max_cycles: u64) -> Result<u64, &'static str> {
-    //     let mut position = &start.to_string();
-    //     for cycle in 0..max_cycles {
-    //         for instruction in self.instructions.iter() {
-    //             position = match instruction {
-    //                 Direction::L => &self.nodes[position].0,
-    //                 Direction::R => &self.nodes[position].1,
-    //             }
-    //         }
-    //         if position == start {
-    //             return Ok(cycle + 1);
-    //         }
-    //     }
-    //     Err("Exceeded max cycles")
-    // }
-
-    // fn find_loops(&self) {
-    //     for start in self.nodes.keys().filter(|s| s.ends_with("A")) {
-    //         match self.find_loop(start, 10) {
-    //             Ok(n_cycles) => {
-    //                 println!("start {} has a loop with {} cycles", start, n_cycles);
-    //             }
-    //             Err(_) => {
-    //                 println!("start {} no loop found", start);
-    //             }
-    //         }
-    //     }
-    // }
-
-    fn count_steps(&self) -> u64 {
-        let mut position = self
-            .nodes
-            .keys()
-            .filter(|key| key.ends_with("A"))
-            .collect::<Vec<_>>();
-        let mut history = position
-            .iter()
-            .map(|node| {
-                let mut h = History::from_map(self);
-                h.push(node);
-                h
-            })
-            .collect::<Vec<_>>();
-        let mut steps = 0;
-        for instruction in self.instructions.iter().cycle() {
-            if position.iter().all(|key| key.ends_with("Z")) {
-                break;
-            }
-            position
-                .iter_mut()
-                .zip(history.iter_mut())
-                .for_each(|(pos, hist)| {
-                    *pos = match instruction {
-                        Direction::L => &self.nodes[*pos].0,
-                        Direction::R => &self.nodes[*pos].1,
-                    };
-                    hist.push(pos);
-                    if hist.check() {
-                        println!("found history loop {:?}", hist)
-                    }
-                });
-            steps += 1;
-        }
-        steps
-    }
-
-    fn get_key_history<'a>(&'a self, key: &'a String) -> Historian<'a> {
+    fn get_key_history<'a>(&'a self, key: &'a String) -> Historian {
         let mut pos = key;
         let mut history = History::from_map(self);
         history.push(pos);
@@ -214,24 +143,23 @@ impl Map {
     }
 
     fn count_steps_2(&self) -> u64 {
-        let history = self
+        let mut history = self
             .nodes
             .keys()
             .filter(|key| key.ends_with("A"))
             .map(|key| self.get_key_history(key))
             .collect::<Vec<_>>();
-        let mut pos = history.iter().map(|h| h.next().unwrap()).collect::<Vec<_>>();
+        let mut pos = history
+            .iter_mut()
+            .map(|h| h.next().unwrap())
+            .collect::<Vec<_>>();
         loop {
-            let max_pos = *pos
-            .iter()
-            .max()
-            .unwrap();
+            let max_pos = *pos.iter().max().unwrap();
             if pos.iter().all(|x| *x == max_pos) {
                 break;
             }
-            for (num, hist) in history.iter().enumerate() {
+            for (num, hist) in history.iter_mut().enumerate() {
                 while pos[num] < max_pos {
-                    let val = hist.next().unwrap();
                     pos[num] = hist.next().unwrap();
                 }
             }
@@ -285,3 +213,4 @@ mod tests {
         assert_eq!(super::run(input), 6);
     }
 }
+// 8b anser: 15299095336639
