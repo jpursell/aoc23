@@ -66,6 +66,7 @@ impl<'a> History<'a> {
     }
 }
 
+#[derive(Debug)]
 struct Historian<'a> {
     history: History<'a>,
     pos: usize,
@@ -195,7 +196,7 @@ impl Map {
         steps
     }
 
-    fn get_key_history<'a>(&'a self, key: &'a String) -> History<'_> {
+    fn get_key_history<'a>(&'a self, key: &'a String) -> Historian<'a> {
         let mut pos = key;
         let mut history = History::from_map(self);
         history.push(pos);
@@ -209,7 +210,7 @@ impl Map {
                 break;
             }
         }
-        history
+        Historian::try_from(history).unwrap()
     }
 
     fn count_steps_2(&self) -> u64 {
@@ -219,10 +220,23 @@ impl Map {
             .filter(|key| key.ends_with("A"))
             .map(|key| self.get_key_history(key))
             .collect::<Vec<_>>();
-        dbg!(history);
-        // TODO need to make historians and use them to keep calling next on the smallest ones until they all match
-        todo!();
-        0
+        let mut pos = history.iter().map(|h| h.next().unwrap()).collect::<Vec<_>>();
+        loop {
+            let max_pos = *pos
+            .iter()
+            .max()
+            .unwrap();
+            if pos.iter().all(|x| *x == max_pos) {
+                break;
+            }
+            for (num, hist) in history.iter().enumerate() {
+                while pos[num] < max_pos {
+                    let val = hist.next().unwrap();
+                    pos[num] = hist.next().unwrap();
+                }
+            }
+        }
+        pos.into_iter().max().unwrap() as u64
     }
 }
 
