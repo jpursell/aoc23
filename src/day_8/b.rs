@@ -20,20 +20,105 @@ impl TryFrom<char> for Direction {
 #[derive(Debug)]
 struct History<'a> {
     nodes: Vec<&'a String>,
+    instruction_len: usize,
+    complete: bool,
 }
 
 impl<'a> History<'a> {
-    fn new() -> Self {
-        History { nodes: Vec::new() }
+    fn new(instruction_len: usize) -> Self {
+        History {
+            nodes: Vec::new(),
+            instruction_len,
+            complete: false,
+        }
+    }
+    fn from_map(map: &Map) -> Self {
+        Self::new(map.instructions.len())
     }
     fn push(&mut self, node: &'a String) {
         self.nodes.push(node);
+        self.update();
     }
-    fn check(&self, len: usize) -> bool {
-        if self.nodes.len() < len + 1 {
+    fn check(&self) -> bool {
+        self.complete
+    }
+    fn cycle_len(&self) -> usize {
+        self.instruction_len
+    }
+    fn cycle_start(&self) -> usize {
+        (self.nodes.len() - 1) % self.cycle_len()
+    }
+    fn update(&self) -> bool {
+        if self.nodes.len() < self.instruction_len + 1 {
             return false;
         }
-        self.nodes[(self.nodes.len() - 1) % len] == *self.nodes.last().unwrap()
+        let pos = self.cycle_start();
+        let old_node = self.nodes[pos];
+        let latest_node = *self.nodes.last().unwrap();
+        let ret = old_node == latest_node;
+        if ret {
+            println!(
+                "history match on {} and {} comparing last to pos {}",
+                old_node, latest_node, pos
+            );
+        }
+        ret
+    }
+}
+
+struct Historian<'a> {
+    history: History<'a>,
+    pos: usize,
+    cycle: usize,
+    cycle_start: usize,
+    cycle_len: usize,
+    end_pos: Vec<usize>,
+}
+
+impl<'a> Historian<'a> {
+    fn new(history: History<'a>) -> Self {
+        assert!(history.check());
+        let cycle_len = history.cycle_len();
+        let cycle_start = history.cycle_start();
+        let end_pos = history
+            .nodes
+            .iter()
+            .enumerate()
+            .filter(|(num, key)| key.ends_with("Z"))
+            .map(|(num, key)| num)
+            .collect::<Vec<usize>>();
+        Historian {
+            history,
+            pos: 0,
+            cycle: 0,
+            cycle_start,
+            cycle_len,
+            end_pos,
+        }
+    }
+}
+
+impl<'a> TryFrom<History<'a>> for Historian<'a> {
+    type Error = &'static str;
+    fn try_from(hist: History<'a>) -> Result<Self, <Self as TryFrom<History<'a>>>::Error> {
+        if !hist.check() {
+            Err("Incomplete history")
+        } else {
+            Ok(Historian::new(hist))
+        }
+    }
+}
+
+impl Iterator for Historian<'_> {
+    type Item = usize;
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        let ret = Some(self.end_pos[self.pos] + self.cycle_len * self.cycle);
+        self.pos += 1;
+        if self.pos == self.end_pos.len() {
+            self.pos = 0;
+            self.cycle += 1;
+        }
+        ret
     }
 }
 
@@ -82,7 +167,7 @@ impl Map {
         let mut history = position
             .iter()
             .map(|node| {
-                let mut h = History::new();
+                let mut h = History::from_map(self);
                 h.push(node);
                 h
             })
@@ -101,7 +186,7 @@ impl Map {
                         Direction::R => &self.nodes[*pos].1,
                     };
                     hist.push(pos);
-                    if hist.check(self.instructions.len()) {
+                    if hist.check() {
                         println!("found history loop {:?}", hist)
                     }
                 });
@@ -109,24 +194,35 @@ impl Map {
         }
         steps
     }
-    fn get_key_history(&self, key: &str) {
-        let mut pos = &key.to_string();
-        let mut history = History::new();
+
+    fn get_key_history<'a>(&'a self, key: &'a String) -> History<'_> {
+        let mut pos = key;
+        let mut history = History::from_map(self);
         history.push(pos);
-        self.instructions.iter().cycle().for_each(|instruction|{
+        for instruction in self.instructions.iter().cycle() {
             pos = match instruction {
-                Direction::L => self.nodes[pos].0,
-                Direction::R => self.nodes[pos].1,
+                Direction::L => &self.nodes[pos].0,
+                Direction::R => &self.nodes[pos].1,
             };
-            history.push(pos)
-        })
-        loop {
-
+            history.push(pos);
+            if history.check() {
+                break;
+            }
         }
-
+        history
     }
+
     fn count_steps_2(&self) -> u64 {
-        let history = self.node.keys().filter(|key| key.ends_with("A")).map(self.get_key_history(key)).collect::<Vec<_>>();
+        let history = self
+            .nodes
+            .keys()
+            .filter(|key| key.ends_with("A"))
+            .map(|key| self.get_key_history(key))
+            .collect::<Vec<_>>();
+        dbg!(history);
+        // TODO need to make historians and use them to keep calling next on the smallest ones until they all match
+        todo!();
+        0
     }
 }
 
@@ -164,7 +260,7 @@ impl FromStr for Map {
 }
 
 pub fn run(input: &str) -> u64 {
-    input.parse::<Map>().unwrap().count_steps()
+    input.parse::<Map>().unwrap().count_steps_2()
 }
 
 #[cfg(test)]
