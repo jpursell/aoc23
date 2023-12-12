@@ -118,8 +118,28 @@ impl<'a> MazeWalker<'a> {
         MazeWalker{maze,pos: maze.find_start(), last_direction: None}
 
     }
-    // todo write this
-    //fn move(&mut self) -> 
+    fn make_move(&mut self, direction: Direction) {
+        match direction {
+            Direction::N => self.pos = (self.pos) // TODO finish this
+            Direction::E => todo!(),
+            Direction::S => todo!(),
+            Direction::W => todo!(),
+        }
+    }
+    fn find_move(&mut self) -> Result<(), ()> {
+        // TODO finish this
+        match self.last_direction {
+            Some(ld) => todo!()
+            None => {
+                for dir in Direction::iter() {
+                    if self.can_move(dir) {
+                        mat
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 impl Maze {
