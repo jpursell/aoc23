@@ -6,6 +6,7 @@ mod day_5;
 mod day_6;
 mod day_7;
 mod day_8;
+mod day_9;
 
 fn main() {
     let args = std::env::args().collect::<Vec<_>>();
@@ -38,6 +39,9 @@ fn main() {
         }
         8 => {
             day_8::run();
+        }
+        9 => {
+            day_9::run();
         }
         _ => {
             panic!();
