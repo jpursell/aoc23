@@ -110,34 +110,31 @@ impl<'a> MazeWalker<'a> {
 
     fn new(maze: &maze) -> MazeWalker {
         let pos = maze.find_start();
-        // for dir in Direction::iter() {
-        //     if self.can_move(dir) {
-        //         self.
-        //     }
-        // }
         MazeWalker{maze,pos: maze.find_start(), last_direction: None}
+    }
 
-    }
     fn make_move(&mut self, direction: Direction) {
-        match direction {
-            Direction::N => self.pos = (self.pos) // TODO finish this
-            Direction::E => todo!(),
-            Direction::S => todo!(),
-            Direction::W => todo!(),
-        }
+        self.pos = match direction {
+            Direction::N => (self.pos.0 - 1, self.pos.1),
+            Direction::E => (self.pos.0, self.pos.1 + 1),
+            Direction::S => (self.pos.0 + 1, self.pos.1),
+            Direction::W => (self.pos.0, self.pos.1 - 1),
+        };
+        self.last_direction = Some(direction);
     }
+
     fn find_move(&mut self) -> Result<(), ()> {
-        // TODO finish this
         match self.last_direction {
             Some(ld) => todo!()
             None => {
                 for dir in Direction::iter() {
                     if self.can_move(dir) {
-                        mat
+                        self.make_move(dir);
                     }
                 }
             }
         }
+        OK(())
     }
 
 }
