@@ -295,14 +295,9 @@ impl Maze {
                     }
                 } else {
                     if crossings % 2 == 1 {
-                        println!("inside pos: {:?}", pos);
                         count += 1;
                     }
                 }
-                println!(
-                    "pos {:?} tile {:?} on_ridge {:?} ridge_start {:?}",
-                    pos, tile, on_ridge, ridge_start
-                );
             }
             assert!(!on_ridge);
         }
@@ -313,13 +308,18 @@ impl Maze {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test1() {
+    fn test2() {
         let input = include_str!("example_data_2.txt");
         assert_eq!(super::run(input), 4);
     }
     #[test]
-    fn test2() {
+    fn test3() {
         let input = include_str!("example_data_3.txt");
+        assert_eq!(super::run(input), 8);
+    }
+    #[test]
+    fn test4() {
+        let input = include_str!("example_data_4.txt");
         assert_eq!(super::run(input), 10);
     }
 }
