@@ -136,6 +136,21 @@ impl<'a> MazeWalker<'a> {
         self.last_direction = Some(*direction);
     }
 
+    fn sub_start(&self) -> char {
+        match self.last_direction {
+            Some(ld) => {
+                panic!()
+            }
+            None => {
+                for dir in Direction::iter() {
+                    // todo: finish this and use it in the other sub_start thing
+                    if self.can_move(&dir) {
+                        self.advance_position(&dir);
+                        break;
+                    }
+                }
+            }
+        }
     fn make_move(&mut self) -> Option<()> {
         match self.last_direction {
             Some(ld) => {
@@ -183,6 +198,10 @@ impl Maze {
         Err("No start")
     }
 
+    fn sub_start(pos: &(usize, usize)) -> char {
+        todo!()
+    }
+
     fn count_inside(&self) -> u64 {
         let mut walker = MazeWalker::new(self);
         let mut path = BTreeSet::new();
@@ -205,6 +224,11 @@ impl Maze {
             for icol in 0..self.ncols {
                 let pos = (irow, icol);
                 let tile = self.map[pos.0][pos.1];
+                let tile = if tile == 'S' {
+                    self.sub_start(&pos)
+                } else {
+                    tile
+                };
                 if path.contains(&pos) {
                     match tile {
                         '|' => {
@@ -266,6 +290,11 @@ impl Maze {
                         count += 1;
                     }
                 }
+                assert!(!on_ridge);
+                println!(
+                    "pos {:?} tile {:?} on_ridge {:?} ridge_start {:?}",
+                    pos, tile, on_ridge, ridge_start
+                );
             }
         }
         count
