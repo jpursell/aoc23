@@ -200,13 +200,65 @@ impl Maze {
         let mut count = 0;
         for irow in 0..self.nrows {
             let mut crossings = 0;
+            let mut on_ridge = false;
+            let mut ridge_start = None;
             for icol in 0..self.ncols {
                 let pos = (irow, icol);
+                let tile = self.map[pos.0][pos.1];
                 if path.contains(&pos) {
-                    // todo check if on '|' or moving across a 
-                    //  F---J or F---7
-                    // or L---J or L---F
-                    todo!();
+                    match tile {
+                        '|' => {
+                            crossings += 1;
+                        }
+                        'F' => {
+                            if on_ridge {
+                                panic!();
+                            } else {
+                                on_ridge = true;
+                                ridge_start = Some(tile);
+                            }
+                        }
+                        'J' => {
+                            if on_ridge {
+                                match ridge_start {
+                                    Some('F') => {
+                                        crossings += 1;
+                                        on_ridge = false;
+                                    }
+                                    Some('L') => (),
+                                    _ => panic!(),
+                                }
+                            } else {
+                                panic!();
+                            }
+                        }
+                        '7' => {
+                            if on_ridge {
+                                match ridge_start {
+                                    Some('L') => {
+                                        crossings += 1;
+                                        on_ridge = false;
+                                    }
+                                    Some('F') => (),
+                                    _ => panic!(),
+                                }
+                            } else {
+                                panic!();
+                            }
+                        }
+                        'L' => {
+                            if on_ridge {
+                                panic!();
+                            } else {
+                                on_ridge = true;
+                                ridge_start = Some(tile);
+                            }
+                        }
+                        '-' => {
+                            assert!(on_ridge);
+                        }
+                        _ => (),
+                    }
                     crossings += 1;
                 } else {
                     if crossings % 2 == 1 {
