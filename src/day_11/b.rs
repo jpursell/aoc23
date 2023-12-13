@@ -61,25 +61,25 @@ impl Universe {
         empty_cols
     }
 
-    fn expand_points(&mut self) {
+    fn expand_points(&mut self, factor: u64) {
         for row in self.find_empty_rows().iter().rev() {
             for point in self.points.iter_mut() {
                 if point.row > *row {
-                    point.row += 1;
+                    point.row += (factor - 1) as usize;
                 }
             }
         }
         for col in self.find_empty_cols().iter().rev() {
             for point in self.points.iter_mut() {
                 if point.col > *col {
-                    point.col += 1;
+                    point.col += (factor - 1) as usize;
                 }
             }
         }
     }
 
-    fn calc_distances_sum(&mut self) -> u64 {
-        self.expand_points();
+    fn calc_distances_sum(&mut self, factor: u64) -> u64 {
+        self.expand_points(factor);
         let mut distance = 0;
         for (ipoint, point0) in self.points.iter().enumerate() {
             for jpoint in ipoint + 1..self.points.len() {
@@ -91,8 +91,8 @@ impl Universe {
     }
 }
 
-pub fn run(input: &str) -> u64 {
-    input.parse::<Universe>().unwrap().calc_distances_sum()
+pub fn run(input: &str, factor: u64) -> u64 {
+    input.parse::<Universe>().unwrap().calc_distances_sum(factor)
 }
 
 #[cfg(test)]
@@ -100,6 +100,11 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 374);
+        assert_eq!(super::run(input, 10), 1030);
+    }
+    #[test]
+    fn test2() {
+        let input = include_str!("example_data.txt");
+        assert_eq!(super::run(input, 100), 8410);
     }
 }
