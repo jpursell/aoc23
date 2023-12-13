@@ -69,6 +69,9 @@ fn tile_supports_dir(tile: &char, direction: &Direction) -> bool {
 }
 
 fn can_go_to_tile(tile: &char, direction: &Direction) -> bool {
+    if *tile == 'S' {
+        return true;
+    }
     tile_supports_dir(tile, &opposite_direction(direction))
 }
 
@@ -116,7 +119,6 @@ impl<'a> MazeWalker<'a> {
     }
 
     fn new(maze: &Maze) -> MazeWalker {
-        let pos = maze.find_start();
         MazeWalker {
             maze,
             pos: maze.find_start().expect("No start!"),
@@ -139,23 +141,28 @@ impl<'a> MazeWalker<'a> {
             Some(ld) => {
                 let tile = &self.maze.map[self.pos.0][self.pos.1];
                 let directions = get_directions(tile).expect("Not on a valid tile!");
-                let direction = if directions.0 == ld {
+                let back = opposite_direction(&ld);
+                let direction = if directions.0 == back {
                     directions.1
-                } else if directions.1 == ld {
+                } else if directions.1 == back {
                     directions.0
                 } else {
-                    panic!()
+                    panic!(
+                        "directions {:?} from tile {:?} did not match back {:?}",
+                        directions, tile, back
+                    )
                 };
                 assert!(self.can_move(&direction));
                 self.advance_position(&direction);
                 if self.maze.map[self.pos.0][self.pos.1] == 'S' {
-                    return None
+                    return None;
                 }
             }
             None => {
                 for dir in Direction::iter() {
                     if self.can_move(&dir) {
                         self.advance_position(&dir);
+                        break;
                     }
                 }
             }
@@ -177,17 +184,18 @@ impl Maze {
     }
 
     fn count_steps(&self) -> u64 {
-        let mut pos = self.find_start();
         let mut walker = MazeWalker::new(self);
         let mut count = 0;
         loop {
             count += 1;
             match walker.make_move() {
                 Some(_) => (),
-                None => {break;}
+                None => {
+                    break;
+                }
             }
         }
-        count
+        count / 2
     }
 }
 
