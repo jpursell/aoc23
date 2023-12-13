@@ -1,9 +1,9 @@
-use std::str::FromStr;
+use std::{collections::BTreeSet, str::FromStr};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 pub fn run(input: &str) -> u64 {
-    input.parse::<Maze>().unwrap().count_steps()
+    input.parse::<Maze>().unwrap().count_inside()
 }
 
 struct Maze {
@@ -183,19 +183,40 @@ impl Maze {
         Err("No start")
     }
 
-    fn count_steps(&self) -> u64 {
+    fn count_inside(&self) -> u64 {
         let mut walker = MazeWalker::new(self);
-        let mut count = 0;
+        let mut path = BTreeSet::new();
+        path.insert(walker.pos);
         loop {
-            count += 1;
             match walker.make_move() {
                 Some(_) => (),
                 None => {
                     break;
                 }
             }
+            path.insert(walker.pos);
         }
-        count / 2
+        path.insert(walker.pos);
+        let mut count = 0;
+        for irow in 0..self.nrows {
+            let mut crossings = 0;
+            for icol in 0..self.ncols {
+                let pos = (irow, icol);
+                if path.contains(&pos) {
+                    // todo check if on '|' or moving across a 
+                    //  F---J or F---7
+                    // or L---J or L---F
+                    todo!();
+                    crossings += 1;
+                } else {
+                    if crossings % 2 == 1 {
+                        println!("inside pos: {:?}", pos);
+                        count += 1;
+                    }
+                }
+            }
+        }
+        count
     }
 }
 
@@ -203,7 +224,12 @@ impl Maze {
 mod tests {
     #[test]
     fn test1() {
-        let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 8);
+        let input = include_str!("example_data_2.txt");
+        assert_eq!(super::run(input), 4);
+    }
+    #[test]
+    fn test2() {
+        let input = include_str!("example_data_3.txt");
+        assert_eq!(super::run(input), 10);
     }
 }
