@@ -147,6 +147,8 @@ impl<'a> MazeWalker<'a> {
                 return 'L';
             } else if dirs.contains(&Direction::W) {
                 return 'J';
+            } else if dirs.contains(&Direction::S) {
+                return '|';
             } else {
                 panic!();
             }
@@ -158,6 +160,8 @@ impl<'a> MazeWalker<'a> {
             } else {
                 panic!();
             }
+        } else if dirs.contains(&Direction::E) && dirs.contains(&Direction::W) {
+            return '-';
         }
         panic!();
     }
