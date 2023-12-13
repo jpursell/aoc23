@@ -28,7 +28,7 @@ impl FromStr for Maze {
     }
 }
 
-#[derive(Clone, Copy, Debug, EnumIter, PartialEq)]
+#[derive(Ord, PartialOrd, Eq, Clone, Copy, Debug, EnumIter, PartialEq)]
 enum Direction {
     N,
     E,
@@ -137,20 +137,30 @@ impl<'a> MazeWalker<'a> {
     }
 
     fn sub_start(&self) -> char {
-        match self.last_direction {
-            Some(ld) => {
-                panic!()
+        assert_eq!(self.last_direction, None);
+        let dirs = Direction::iter()
+            .filter(|d| self.can_move(d))
+            .collect::<BTreeSet<Direction>>();
+        assert_eq!(2, dirs.len());
+        if dirs.contains(&Direction::N) {
+            if dirs.contains(&Direction::E) {
+                return 'L';
+            } else if dirs.contains(&Direction::W) {
+                return 'J';
+            } else {
+                panic!();
             }
-            None => {
-                for dir in Direction::iter() {
-                    // todo: finish this and use it in the other sub_start thing
-                    if self.can_move(&dir) {
-                        self.advance_position(&dir);
-                        break;
-                    }
-                }
+        } else if dirs.contains(&Direction::S) {
+            if dirs.contains(&Direction::E) {
+                return 'F';
+            } else if dirs.contains(&Direction::W) {
+                return '7';
+            } else {
+                panic!();
             }
         }
+        panic!();
+    }
     fn make_move(&mut self) -> Option<()> {
         match self.last_direction {
             Some(ld) => {
@@ -198,8 +208,8 @@ impl Maze {
         Err("No start")
     }
 
-    fn sub_start(pos: &(usize, usize)) -> char {
-        todo!()
+    fn sub_start(&self) -> char {
+        MazeWalker::new(self).sub_start()
     }
 
     fn count_inside(&self) -> u64 {
@@ -224,11 +234,7 @@ impl Maze {
             for icol in 0..self.ncols {
                 let pos = (irow, icol);
                 let tile = self.map[pos.0][pos.1];
-                let tile = if tile == 'S' {
-                    self.sub_start(&pos)
-                } else {
-                    tile
-                };
+                let tile = if tile == 'S' { self.sub_start() } else { tile };
                 if path.contains(&pos) {
                     match tile {
                         '|' => {
@@ -249,7 +255,9 @@ impl Maze {
                                         crossings += 1;
                                         on_ridge = false;
                                     }
-                                    Some('L') => (),
+                                    Some('L') => {
+                                        on_ridge = false;
+                                    }
                                     _ => panic!(),
                                 }
                             } else {
@@ -263,7 +271,9 @@ impl Maze {
                                         crossings += 1;
                                         on_ridge = false;
                                     }
-                                    Some('F') => (),
+                                    Some('F') => {
+                                        on_ridge = false;
+                                    }
                                     _ => panic!(),
                                 }
                             } else {
@@ -283,19 +293,18 @@ impl Maze {
                         }
                         _ => (),
                     }
-                    crossings += 1;
                 } else {
                     if crossings % 2 == 1 {
                         println!("inside pos: {:?}", pos);
                         count += 1;
                     }
                 }
-                assert!(!on_ridge);
                 println!(
                     "pos {:?} tile {:?} on_ridge {:?} ridge_start {:?}",
                     pos, tile, on_ridge, ridge_start
                 );
             }
+            assert!(!on_ridge);
         }
         count
     }
