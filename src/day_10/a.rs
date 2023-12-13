@@ -3,7 +3,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 pub fn run(input: &str) -> u64 {
-    0
+    input.parse::<Maze>().unwrap().count_steps()
 }
 
 struct Maze {
@@ -28,7 +28,7 @@ impl FromStr for Maze {
     }
 }
 
-#[derive(Debug, EnumIter, PartialEq)]
+#[derive(Clone, Copy, Debug, EnumIter, PartialEq)]
 enum Direction {
     N,
     E,
@@ -54,7 +54,7 @@ fn get_directions(c: &char) -> Option<(Direction, Direction)> {
         '7' => Some((Direction::S, Direction::W)),
         'F' => Some((Direction::S, Direction::E)),
         '.' => None,
-        _ => panic!(),
+        _ => panic!("got unexpect val {}", c),
     }
 }
 
@@ -134,7 +134,7 @@ impl<'a> MazeWalker<'a> {
         self.last_direction = Some(*direction);
     }
 
-    fn make_move(&mut self) -> Result<(), ()> {
+    fn make_move(&mut self) -> Option<()> {
         match self.last_direction {
             Some(ld) => {
                 let tile = &self.maze.map[self.pos.0][self.pos.1];
@@ -148,6 +148,9 @@ impl<'a> MazeWalker<'a> {
                 };
                 assert!(self.can_move(&direction));
                 self.advance_position(&direction);
+                if self.maze.map[self.pos.0][self.pos.1] == 'S' {
+                    return None
+                }
             }
             None => {
                 for dir in Direction::iter() {
@@ -157,7 +160,7 @@ impl<'a> MazeWalker<'a> {
                 }
             }
         }
-        Ok(())
+        Some(())
     }
 }
 
@@ -175,9 +178,16 @@ impl Maze {
 
     fn count_steps(&self) -> u64 {
         let mut pos = self.find_start();
-        let walker = MazeWalker::new(self);
-        todo!();
-        0
+        let mut walker = MazeWalker::new(self);
+        let mut count = 0;
+        loop {
+            count += 1;
+            match walker.make_move() {
+                Some(_) => (),
+                None => {break;}
+            }
+        }
+        count
     }
 }
 
