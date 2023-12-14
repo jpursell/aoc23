@@ -43,8 +43,6 @@ impl SpringRecordIterator {
             .map(|(i, _)| i)
             .collect::<Vec<_>>();
         let groups = record.groups.clone();
-        // todo fix tot to take into account total present and total expected
-        let tot = groups.iter().map(|&x| x as usize).sum();
         let record = record
             .record
             .iter()
@@ -56,6 +54,8 @@ impl SpringRecordIterator {
                 }
             })
             .collect::<Vec<_>>();
+        let mut tot = groups.iter().map(|&x| x as usize).sum();
+        tot -= record.iter().filter(|&&c| c == Condition::Damaged).count();
         let combinations = loc.into_iter().combinations(tot);
 
         SpringRecordIterator {
@@ -69,6 +69,7 @@ impl SpringRecordIterator {
         let groups = condition
             .split(|&c| c == Condition::Operational)
             .map(|c| c.len())
+            .filter(|&n| n > 0)
             .collect::<Vec<_>>();
         if groups.len() != self.groups.len() {
             return false;
@@ -85,16 +86,13 @@ impl Iterator for SpringRecordIterator {
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         loop {
             let Some(loc) = self.combinations.next() else {
-                println!("done");
                 return None;
             };
             let mut out = self.record.clone();
             loc.iter().for_each(|&i| out[i] = Condition::Damaged);
             if self.check(&out) {
-                println!("match {:?}", out);
                 return Some(out);
             }
-            println!("non match {:?}", out);
         }
     }
 }
@@ -129,9 +127,6 @@ pub fn run(input: &str) -> usize {
     input
         .lines()
         .map(|line| line.parse::<SpringRecord>().unwrap())
-        .inspect(|sr| {
-            dbg!(&sr);
-        })
         .map(|sr| sr.count_solutions())
         .sum()
 }
