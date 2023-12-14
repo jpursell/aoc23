@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::Instant};
 
 use itertools::{Combinations, Itertools};
 
@@ -101,11 +101,13 @@ impl FromStr for SpringRecord {
     type Err = &'static str;
     fn from_str(line: &str) -> Result<Self, <Self as FromStr>::Err> {
         let (record, groups) = line.split_once(" ").unwrap();
+        let record = (0..5).map(|_| record.to_string()).collect::<Vec<_>>().join(&"?");
+        let groups = (0..5).map(|_| groups.to_string()).collect::<Vec<_>>().join(&",");
+        println!("{} {}", record, groups);
         let record = record
             .chars()
             .map(|c| Condition::try_from(c).unwrap())
             .collect::<Vec<_>>();
-        // todo x5 these
         let groups = groups
             .split(",")
             .map(|num| num.parse::<u32>().unwrap())
@@ -125,11 +127,14 @@ impl SpringRecord {
 }
 
 pub fn run(input: &str) -> usize {
-    input
-        .lines()
-        .map(|line| line.parse::<SpringRecord>().unwrap())
-        .map(|sr| sr.count_solutions())
-        .sum()
+    let mut count = 0;
+    for line in input.lines() {
+        println!("working on line {}", line);
+        let now = Instant::now();
+        count += line.parse::<SpringRecord>().unwrap().count_solutions();
+        println!("count {} took {} seconds", count, now.elapsed().as_secs_f32());
+    }
+    count
 }
 
 #[cfg(test)]
