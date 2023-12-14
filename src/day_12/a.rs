@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use itertools::{Combinations, Itertools};
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Condition {
     Operational,
@@ -27,31 +29,73 @@ struct SpringRecord {
 
 struct SpringRecordIterator {
     record: Vec<Condition>,
-    pos: u64,
-    tot: u64,
+    groups: Vec<u32>,
+    combinations: Combinations<std::vec::IntoIter<usize>>,
 }
 
 impl SpringRecordIterator {
     fn new(record: &SpringRecord) -> SpringRecordIterator {
-        let tot = 2_u64.pow(
-            record
-                .record
-                .iter()
-                .filter(|c| **c == Condition::Unknown)
-                .count() as u32,
-        );
+        let loc = record
+            .record
+            .iter()
+            .enumerate()
+            .filter(|(_, &c)| c == Condition::Unknown)
+            .map(|(i, _)| i)
+            .collect::<Vec<_>>();
+        let groups = record.groups.clone();
+        // todo fix tot to take into account total present and total expected
+        let tot = groups.iter().map(|&x| x as usize).sum();
+        let record = record
+            .record
+            .iter()
+            .map(|&c| {
+                if c == Condition::Unknown {
+                    Condition::Operational
+                } else {
+                    c
+                }
+            })
+            .collect::<Vec<_>>();
+        let combinations = loc.into_iter().combinations(tot);
+
         SpringRecordIterator {
-            record: record.record.clone(),
-            pos: 0,
-            tot,
+            record,
+            groups,
+            combinations,
         }
+    }
+
+    fn check(&self, condition: &Vec<Condition>) -> bool {
+        let groups = condition
+            .split(|&c| c == Condition::Operational)
+            .map(|c| c.len())
+            .collect::<Vec<_>>();
+        if groups.len() != self.groups.len() {
+            return false;
+        }
+        groups
+            .iter()
+            .zip(self.groups.iter())
+            .all(|(&x, &y)| x == y as usize)
     }
 }
 
 impl Iterator for SpringRecordIterator {
     type Item = Vec<Condition>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        todo!()
+        loop {
+            let Some(loc) = self.combinations.next() else {
+                println!("done");
+                return None;
+            };
+            let mut out = self.record.clone();
+            loc.iter().for_each(|&i| out[i] = Condition::Damaged);
+            if self.check(&out) {
+                println!("match {:?}", out);
+                return Some(out);
+            }
+            println!("non match {:?}", out);
+        }
     }
 }
 
@@ -72,8 +116,8 @@ impl FromStr for SpringRecord {
 }
 
 impl SpringRecord {
-    fn count_solutions(&self) -> u64 {
-        0
+    fn count_solutions(&self) -> usize {
+        self.iter().count()
     }
 
     fn iter(&self) -> SpringRecordIterator {
@@ -81,7 +125,7 @@ impl SpringRecord {
     }
 }
 
-pub fn run(input: &str) -> u64 {
+pub fn run(input: &str) -> usize {
     input
         .lines()
         .map(|line| line.parse::<SpringRecord>().unwrap())
