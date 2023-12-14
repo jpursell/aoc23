@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum Condition {
     Operational,
     Damaged,
@@ -25,6 +25,36 @@ struct SpringRecord {
     groups: Vec<u32>,
 }
 
+struct SpringRecordIterator {
+    record: Vec<Condition>,
+    pos: u64,
+    tot: u64,
+}
+
+impl SpringRecordIterator {
+    fn new(record: &SpringRecord) -> SpringRecordIterator {
+        let tot = 2_u64.pow(
+            record
+                .record
+                .iter()
+                .filter(|c| **c == Condition::Unknown)
+                .count() as u32,
+        );
+        SpringRecordIterator {
+            record: record.record.clone(),
+            pos: 0,
+            tot,
+        }
+    }
+}
+
+impl Iterator for SpringRecordIterator {
+    type Item = Vec<Condition>;
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        todo!()
+    }
+}
+
 impl FromStr for SpringRecord {
     type Err = &'static str;
     fn from_str(line: &str) -> Result<Self, <Self as FromStr>::Err> {
@@ -44,6 +74,10 @@ impl FromStr for SpringRecord {
 impl SpringRecord {
     fn count_solutions(&self) -> u64 {
         0
+    }
+
+    fn iter(&self) -> SpringRecordIterator {
+        SpringRecordIterator::new(self)
     }
 }
 
