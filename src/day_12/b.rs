@@ -26,6 +26,7 @@ impl TryFrom<char> for Condition {
 struct SpringRecord {
     record: Vec<Condition>,
     groups: Vec<u32>,
+    num_unknown: usize,
 }
 
 impl FromStr for SpringRecord {
@@ -49,22 +50,35 @@ impl FromStr for SpringRecord {
             .split(",")
             .map(|num| num.parse::<u32>().unwrap())
             .collect::<Vec<_>>();
-        Ok(SpringRecord { record, groups })
+        Ok(SpringRecord::new(record, groups))
     }
 }
 
 impl SpringRecord {
+    fn new(record: Vec<Condition>, groups: Vec<u32>) -> SpringRecord {
+        let num_unknown = record.iter().filter(|&&c| c == Condition::Unknown).count();
+        SpringRecord {
+            record,
+            groups,
+            num_unknown,
+        }
+    }
     /// Check if there are no more unknowns
     fn complete(&self, solution: &Vec<Condition>) -> bool {
-        // todo complete function
-        todo!();
+        self.num_unknown == solution.len()
+    }
+
+    /// Look at first groups of Condition::Damaged and see if they match
+    fn check_first_groups(&self, solution: &Vec<Condition>) -> bool {
+        let first = solution
+        .split(|c|c==Condition::Unknown)
+        .next();
     }
 
     /// Check to see if current solution is possible. Can handle unknowns.
     ///
     /// The answer should be saved in a bool
     fn check(&self, solution: &Vec<Condition>) -> bool {
-        todo!();
         // TODO implement check that can handle unknowns
 
         // let groups = condition
@@ -82,17 +96,19 @@ impl SpringRecord {
     }
 
     fn append_solution(&self, solution: &mut Vec<Condition>, condition: &Condition) {
-        todo!()
+        solution.push(*condition);
     }
+
     fn undo_solution(&self, solution: &mut Vec<Condition>) {
-        todo!()
+        solution.pop();
     }
+
     fn count_solutions(&self, solution: &mut Vec<Condition>) -> usize {
         if !self.check(solution) {
             return 0;
         }
 
-        if self.complete() {
+        if self.complete(&solution) {
             return 1;
         } else {
             self.append_solution(solution, &Condition::Damaged);
@@ -113,7 +129,10 @@ pub fn run(input: &str) -> usize {
     for line in input.lines() {
         println!("working on line {}", line);
         let now = Instant::now();
-        count += line.parse::<SpringRecord>().unwrap().count_solutions();
+        count += line
+            .parse::<SpringRecord>()
+            .unwrap()
+            .count_solutions(&mut Vec::new());
         println!(
             "count {} took {} seconds",
             count,
