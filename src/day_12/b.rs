@@ -28,36 +28,17 @@ struct SpringRecord {
 }
 
 struct SpringRecordIterator {
-    record: Vec<Condition>,
-    groups: Vec<u32>,
-    combinations: Combinations<std::vec::IntoIter<usize>>,
+    record: &SpringRecord,
+    solution: Vec<Condition>,
+    child_operational: Option<SpringRecordIterator>,
+    child_damaged: Option<SpringRecordIterator>,
 }
 
+// TODO working on making some kind of recursive iterator and thinking about how to
+// not use a ton of memory. Maybe each recusive struct just has the proposed anser at a particular
+// unknown but then you need to modify the record... still thinking on this
 impl SpringRecordIterator {
     fn new(record: &SpringRecord) -> SpringRecordIterator {
-        let loc = record
-            .record
-            .iter()
-            .enumerate()
-            .filter(|(_, &c)| c == Condition::Unknown)
-            .map(|(i, _)| i)
-            .collect::<Vec<_>>();
-        let groups = record.groups.clone();
-        let record = record
-            .record
-            .iter()
-            .map(|&c| {
-                if c == Condition::Unknown {
-                    Condition::Operational
-                } else {
-                    c
-                }
-            })
-            .collect::<Vec<_>>();
-        let mut tot = groups.iter().map(|&x| x as usize).sum();
-        tot -= record.iter().filter(|&&c| c == Condition::Damaged).count();
-        let combinations = loc.into_iter().combinations(tot);
-
         SpringRecordIterator {
             record,
             groups,
@@ -101,8 +82,14 @@ impl FromStr for SpringRecord {
     type Err = &'static str;
     fn from_str(line: &str) -> Result<Self, <Self as FromStr>::Err> {
         let (record, groups) = line.split_once(" ").unwrap();
-        let record = (0..5).map(|_| record.to_string()).collect::<Vec<_>>().join(&"?");
-        let groups = (0..5).map(|_| groups.to_string()).collect::<Vec<_>>().join(&",");
+        let record = (0..5)
+            .map(|_| record.to_string())
+            .collect::<Vec<_>>()
+            .join(&"?");
+        let groups = (0..5)
+            .map(|_| groups.to_string())
+            .collect::<Vec<_>>()
+            .join(&",");
         println!("{} {}", record, groups);
         let record = record
             .chars()
@@ -132,7 +119,11 @@ pub fn run(input: &str) -> usize {
         println!("working on line {}", line);
         let now = Instant::now();
         count += line.parse::<SpringRecord>().unwrap().count_solutions();
-        println!("count {} took {} seconds", count, now.elapsed().as_secs_f32());
+        println!(
+            "count {} took {} seconds",
+            count,
+            now.elapsed().as_secs_f32()
+        );
     }
     count
 }
