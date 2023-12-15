@@ -28,17 +28,17 @@ struct SpringRecord {
     groups: Vec<u32>,
 }
 
-struct SpringRecordIterator {
-    record: &SpringRecord,
+struct SpringRecordIterator<'a> {
+    record: &'a SpringRecord,
     solution: Vec<Condition>,
-    child_operational: Option<SpringRecordIterator>,
-    child_damaged: Option<SpringRecordIterator>,
+    child_operational: Option<Box<SpringRecordIterator<'a>>>,
+    child_damaged: Option<Box<SpringRecordIterator<'a>>>,
     check_cache: Option<bool>,
     complete_cache: Option<bool>,
     done: bool,
 }
 
-impl SpringRecordIterator {
+impl<'a> SpringRecordIterator<'a> {
     /// Create new recursive spring record iterator
     ///
     /// This iterates through solutions for the problem.
@@ -96,6 +96,9 @@ impl SpringRecordIterator {
         self.check_cache = Some(ret);
         ret
     }
+
+    fn make_damaged_solution -> Vec<Condition> {todo!()}
+    fn make_operational_solution -> Vec<Condition> {todo!()}
 }
 
 impl Iterator for SpringRecordIterator {
@@ -110,12 +113,13 @@ impl Iterator for SpringRecordIterator {
             return Some(self.solution);
         } else {
             if let None = self.child_damaged {
-                // todo make this a box
-                self.child_damaged = 
+                self.child_damaged = Box::new(SpringRecordIterator::new(
+                    self.record,
+                    self.make_damaged_solution(),
+                ));
             }
-            loop {
+            // todo: if let Some(solution) => return solution
 
-            }
             // TODO Add code for children
             todo!()
         }
