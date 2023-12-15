@@ -109,6 +109,13 @@ impl Iterator for SpringRecordIterator {
             self.done = true;
             return Some(self.solution);
         } else {
+            if let None = self.child_damaged {
+                // todo make this a box
+                self.child_damaged = 
+            }
+            loop {
+
+            }
             // TODO Add code for children
             todo!()
         }
