@@ -1,6 +1,7 @@
 use std::{str::FromStr, time::Instant};
 
 use itertools::{Combinations, Itertools};
+use rayon::iter::ParallelIterator;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Condition {
@@ -34,47 +35,60 @@ struct SpringRecordIterator {
     child_damaged: Option<SpringRecordIterator>,
 }
 
-// TODO working on making some kind of recursive iterator and thinking about how to
-// not use a ton of memory. Maybe each recusive struct just has the proposed anser at a particular
-// unknown but then you need to modify the record... still thinking on this
 impl SpringRecordIterator {
-    fn new(record: &SpringRecord) -> SpringRecordIterator {
+    /// Create new recursive spring record iterator
+    /// 
+    /// This iterates through solutions for the problem.
+    /// The solution at the top level should be an empty Vec
+    fn new(record: &SpringRecord, solution: Vec<Condition>) -> SpringRecordIterator {
         SpringRecordIterator {
             record,
-            groups,
-            combinations,
+            solution,
+            child_operational: None,
+            child_damaged: None,
         }
     }
 
-    fn check(&self, condition: &Vec<Condition>) -> bool {
-        let groups = condition
-            .split(|&c| c == Condition::Operational)
-            .map(|c| c.len())
-            .filter(|&n| n > 0)
-            .collect::<Vec<_>>();
-        if groups.len() != self.groups.len() {
-            return false;
-        }
-        groups
-            .iter()
-            .zip(self.groups.iter())
-            .all(|(&x, &y)| x == y as usize)
+    /// Check if there are no more unknowns
+    fn complete(&self) -> bool {
+        todo!()
+    }
+
+    /// Check to see if current solution is possible. Can handle unknowns.
+    /// 
+    /// The answer should be saved in a bool
+    fn check(&self) -> bool {
+        todo!();
+        
+        // TODO check if already run and return answer from bool
+
+        // TODO implement check that can handle unknowns
+
+        // let groups = condition
+        //     .split(|&c| c == Condition::Operational)
+        //     .map(|c| c.len())
+        //     .filter(|&n| n > 0)
+        //     .collect::<Vec<_>>();
+        // if groups.len() != self.groups.len() {
+        //     return false;
+        // }
+        // groups
+        //     .iter()
+        //     .zip(self.groups.iter())
+        //     .all(|(&x, &y)| x == y as usize)
     }
 }
 
 impl Iterator for SpringRecordIterator {
     type Item = Vec<Condition>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        loop {
-            let Some(loc) = self.combinations.next() else {
-                return None;
-            };
-            let mut out = self.record.clone();
-            loc.iter().for_each(|&i| out[i] = Condition::Damaged);
-            if self.check(&out) {
-                return Some(out);
-            }
-        }
+        // if current solution is not possible return None to signal this is a dead end
+        if !self.check() {return None;}
+
+        // TODO add code to return complete solution
+
+        // TODO Add code for children
+
     }
 }
 
