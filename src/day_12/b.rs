@@ -33,11 +33,14 @@ struct SpringRecordIterator {
     solution: Vec<Condition>,
     child_operational: Option<SpringRecordIterator>,
     child_damaged: Option<SpringRecordIterator>,
+    check_cache: Option<bool>,
+    complete_cache: Option<bool>,
+    done: bool,
 }
 
 impl SpringRecordIterator {
     /// Create new recursive spring record iterator
-    /// 
+    ///
     /// This iterates through solutions for the problem.
     /// The solution at the top level should be an empty Vec
     fn new(record: &SpringRecord, solution: Vec<Condition>) -> SpringRecordIterator {
@@ -46,23 +49,37 @@ impl SpringRecordIterator {
             solution,
             child_operational: None,
             child_damaged: None,
+            check_cache: None,
+            complete_cache: None,
+            done: false,
         }
     }
 
     /// Check if there are no more unknowns
-    fn complete(&self) -> bool {
-        todo!()
+    fn complete(&mut self) -> bool {
+        if let Some(completed) = self.complete_cache {
+            return completed;
+        }
+
+        // todo complete function
+        todo!();
+        let ret = false;
+
+        self.complete_cache = Some(ret);
+        ret
     }
 
     /// Check to see if current solution is possible. Can handle unknowns.
-    /// 
+    ///
     /// The answer should be saved in a bool
     fn check(&self) -> bool {
-        todo!();
-        
-        // TODO check if already run and return answer from bool
+        if let Some(ret) = self.check_cache {
+            return ret;
+        }
 
+        todo!();
         // TODO implement check that can handle unknowns
+        let ret = false;
 
         // let groups = condition
         //     .split(|&c| c == Condition::Operational)
@@ -76,19 +93,25 @@ impl SpringRecordIterator {
         //     .iter()
         //     .zip(self.groups.iter())
         //     .all(|(&x, &y)| x == y as usize)
+        self.check_cache = Some(ret);
+        ret
     }
 }
 
 impl Iterator for SpringRecordIterator {
     type Item = Vec<Condition>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        // if current solution is not possible return None to signal this is a dead end
-        if !self.check() {return None;}
+        if !self.check() || self.done {
+            return None;
+        }
 
-        // TODO add code to return complete solution
-
-        // TODO Add code for children
-
+        if self.complete() {
+            self.done = true;
+            return Some(self.solution);
+        } else {
+            // TODO Add code for children
+            todo!()
+        }
     }
 }
 
