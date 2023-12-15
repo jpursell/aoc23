@@ -28,104 +28,6 @@ struct SpringRecord {
     groups: Vec<u32>,
 }
 
-struct SpringRecordIterator<'a> {
-    record: &'a SpringRecord,
-    solution: Vec<Condition>,
-    child_operational: Option<Box<SpringRecordIterator<'a>>>,
-    child_damaged: Option<Box<SpringRecordIterator<'a>>>,
-    check_cache: Option<bool>,
-    complete_cache: Option<bool>,
-    done: bool,
-}
-
-impl<'a> SpringRecordIterator<'a> {
-    /// Create new recursive spring record iterator
-    ///
-    /// This iterates through solutions for the problem.
-    /// The solution at the top level should be an empty Vec
-    fn new(record: &SpringRecord, solution: Vec<Condition>) -> SpringRecordIterator {
-        SpringRecordIterator {
-            record,
-            solution,
-            child_operational: None,
-            child_damaged: None,
-            check_cache: None,
-            complete_cache: None,
-            done: false,
-        }
-    }
-
-    /// Check if there are no more unknowns
-    fn complete(&mut self) -> bool {
-        if let Some(completed) = self.complete_cache {
-            return completed;
-        }
-
-        // todo complete function
-        todo!();
-        let ret = false;
-
-        self.complete_cache = Some(ret);
-        ret
-    }
-
-    /// Check to see if current solution is possible. Can handle unknowns.
-    ///
-    /// The answer should be saved in a bool
-    fn check(&self) -> bool {
-        if let Some(ret) = self.check_cache {
-            return ret;
-        }
-
-        todo!();
-        // TODO implement check that can handle unknowns
-        let ret = false;
-
-        // let groups = condition
-        //     .split(|&c| c == Condition::Operational)
-        //     .map(|c| c.len())
-        //     .filter(|&n| n > 0)
-        //     .collect::<Vec<_>>();
-        // if groups.len() != self.groups.len() {
-        //     return false;
-        // }
-        // groups
-        //     .iter()
-        //     .zip(self.groups.iter())
-        //     .all(|(&x, &y)| x == y as usize)
-        self.check_cache = Some(ret);
-        ret
-    }
-
-    fn make_damaged_solution -> Vec<Condition> {todo!()}
-    fn make_operational_solution -> Vec<Condition> {todo!()}
-}
-
-impl Iterator for SpringRecordIterator {
-    type Item = Vec<Condition>;
-    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        if !self.check() || self.done {
-            return None;
-        }
-
-        if self.complete() {
-            self.done = true;
-            return Some(self.solution);
-        } else {
-            if let None = self.child_damaged {
-                self.child_damaged = Box::new(SpringRecordIterator::new(
-                    self.record,
-                    self.make_damaged_solution(),
-                ));
-            }
-            // todo: if let Some(solution) => return solution
-
-            // TODO Add code for children
-            todo!()
-        }
-    }
-}
-
 impl FromStr for SpringRecord {
     type Err = &'static str;
     fn from_str(line: &str) -> Result<Self, <Self as FromStr>::Err> {
@@ -152,12 +54,57 @@ impl FromStr for SpringRecord {
 }
 
 impl SpringRecord {
-    fn count_solutions(&self) -> usize {
-        self.iter().count()
+    /// Check if there are no more unknowns
+    fn complete(&self, solution: &Vec<Condition>) -> bool {
+        // todo complete function
+        todo!();
     }
 
-    fn iter(&self) -> SpringRecordIterator {
-        SpringRecordIterator::new(self)
+    /// Check to see if current solution is possible. Can handle unknowns.
+    ///
+    /// The answer should be saved in a bool
+    fn check(&self, solution: &Vec<Condition>) -> bool {
+        todo!();
+        // TODO implement check that can handle unknowns
+
+        // let groups = condition
+        //     .split(|&c| c == Condition::Operational)
+        //     .map(|c| c.len())
+        //     .filter(|&n| n > 0)
+        //     .collect::<Vec<_>>();
+        // if groups.len() != self.groups.len() {
+        //     return false;
+        // }
+        // groups
+        //     .iter()
+        //     .zip(self.groups.iter())
+        //     .all(|(&x, &y)| x == y as usize)
+    }
+
+    fn append_solution(&self, solution: &mut Vec<Condition>, condition: &Condition) {
+        todo!()
+    }
+    fn undo_solution(&self, solution: &mut Vec<Condition>) {
+        todo!()
+    }
+    fn count_solutions(&self, solution: &mut Vec<Condition>) -> usize {
+        if !self.check(solution) {
+            return 0;
+        }
+
+        if self.complete() {
+            return 1;
+        } else {
+            self.append_solution(solution, &Condition::Damaged);
+            let mut count = self.count_solutions(solution);
+            self.undo_solution(solution);
+
+            self.append_solution(solution, &Condition::Operational);
+            count += self.count_solutions(solution);
+            self.undo_solution(solution);
+
+            return count;
+        }
     }
 }
 
