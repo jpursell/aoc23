@@ -497,4 +497,64 @@ mod tests {
         )
         .check(&vec![Condition::Operational]));
     }
+    #[test]
+    fn test_line_1() {
+        assert_eq!(
+            "???.### 1,1,3"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(&mut Vec::new()),
+            1
+        );
+    }
+    #[test]
+    fn test_line_2() {
+        assert_eq!(
+            ".??..??...?##. 1,1,3"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(&mut Vec::new()),
+            16384
+        );
+    }
+    #[test]
+    fn test_line_3() {
+        assert_eq!(
+            "?#?#?#?#?#?#?#? 1,3,1,6"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(&mut Vec::new()),
+            1
+        );
+    }
+    #[test]
+    fn test_line_4() {
+        assert_eq!(
+            "????.#...#... 4,1,1"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(&mut Vec::new()),
+            16
+        );
+    }
+    #[test]
+    fn test_line_5() {
+        assert_eq!(
+            "????.######..#####. 1,6,5"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(&mut Vec::new()),
+            2500
+        );
+    }
+    #[test]
+    fn test_line_6() {
+        assert_eq!(
+            "?###???????? 3,2,1"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(&mut Vec::new()),
+            506250
+        );
+    }
 }
