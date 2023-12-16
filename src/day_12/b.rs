@@ -38,7 +38,6 @@ impl FromStr for SpringRecord {
             .map(|_| groups.to_string())
             .collect::<Vec<_>>()
             .join(&",");
-        println!("{} {}", record, groups);
         let record = record
             .chars()
             .map(|c| Condition::try_from(c).unwrap())
@@ -85,13 +84,21 @@ impl SpringRecord {
 
     /// Look at first groups of Condition::Damaged and see if they match
     fn check_first_groups(&self, solution: &Vec<Condition>) -> bool {
-        let first = solution.split(|&c| c == Condition::Unknown).next().unwrap();
+        let first = if solution.iter().all(|&c| c != Condition::Unknown) {
+            &solution[..]
+        } else {
+            let first = solution.split(|&c| c == Condition::Unknown).next().unwrap();
+            if first.last() == Some(&Condition::Damaged) {
+                first.split(|&c| c == Condition::Damaged).next().unwrap()
+            } else {
+                first
+            }
+        };
         let groups = first
             .split(|&c| c == Condition::Operational)
             .map(|c| c.len())
             .filter(|&n| n > 0)
             .collect::<Vec<_>>();
-        println!("check_first_groups: first {:?} groups {:?}", first, groups);
         self.groups
             .iter()
             .zip(groups.iter())
@@ -130,7 +137,6 @@ impl SpringRecord {
                     Condition::Unknown => panic!(),
                 }
             });
-            println!("max group solution: {:?}", max_group_solution);
             let max_groups = max_group_solution
                 .split(|&c| c == Condition::Operational)
                 .map(|c| c.len())
@@ -159,7 +165,6 @@ impl SpringRecord {
                     Condition::Unknown => panic!(),
                 }
             });
-            println!("min group solution: {:?}", min_group_solution);
             let min_groups = min_group_solution
                 .split(|&c| c == Condition::Operational)
                 .map(|c| c.len())
@@ -254,6 +259,119 @@ mod tests {
                 Condition::Operational
             ],
             vec![1]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1a() {
+        assert!(!SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Operational,
+                Condition::Operational
+            ],
+            vec![1]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1b() {
+        assert!(!SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Operational
+            ],
+            vec![2]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1c() {
+        assert!(SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Damaged,
+                Condition::Unknown,
+            ],
+            vec![1, 2]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1d() {
+        assert!(SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Damaged
+            ],
+            vec![1, 2]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1e() {
+        assert!(!SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Damaged
+            ],
+            vec![1, 3]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1f() {
+        assert!(!SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Unknown,
+                Condition::Unknown,
+                Condition::Damaged
+            ],
+            vec![1, 1, 1]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1ga() {
+        assert!(SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Unknown,
+                Condition::Unknown,
+                Condition::Damaged,
+                Condition::Operational,
+                Condition::Damaged
+            ],
+            vec![4, 1]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1g() {
+        assert!(!SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Unknown,
+                Condition::Unknown,
+                Condition::Damaged,
+                Condition::Operational,
+                Condition::Damaged
+            ],
+            vec![3]
         )
         .check(&Vec::new()));
     }
