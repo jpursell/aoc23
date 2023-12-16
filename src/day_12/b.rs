@@ -1,6 +1,5 @@
-use std::{str::FromStr, time::Instant};
-
-use itertools::Itertools;
+use rayon::prelude::*;
+use std::str::FromStr;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Condition {
@@ -52,19 +51,19 @@ impl FromStr for SpringRecord {
     }
 }
 
-fn format_record(r: &Vec<Condition>) -> String {
-    r.iter()
-        .map(|&c| match c {
-            Condition::Damaged => '#',
-            Condition::Operational => '.',
-            Condition::Unknown => '?',
-        })
-        .collect::<String>()
-}
+// fn format_record(r: &Vec<Condition>) -> String {
+//     r.iter()
+//         .map(|&c| match c {
+//             Condition::Damaged => '#',
+//             Condition::Operational => '.',
+//             Condition::Unknown => '?',
+//         })
+//         .collect::<String>()
+// }
 
-fn format_groups(g: &Vec<usize>) -> String {
-    g.iter().map(|&g| format!("{}", g)).join(",")
-}
+// fn format_groups(g: &Vec<usize>) -> String {
+//     g.iter().map(|&g| format!("{}", g)).join(",")
+// }
 
 impl SpringRecord {
     fn new(record: Vec<Condition>, groups: Vec<usize>) -> SpringRecord {
@@ -278,7 +277,10 @@ impl SpringRecord {
         solution.pop();
     }
 
-    fn count_solutions(&self, solution: &mut Vec<Condition>) -> usize {
+    fn count_solutions(&self) -> usize {
+        self.count_solutions_inner(&mut Vec::new())
+    }
+    fn count_solutions_inner(&self, solution: &mut Vec<Condition>) -> usize {
         if !self.check(solution) {
             return 0;
         }
@@ -287,11 +289,11 @@ impl SpringRecord {
             return 1;
         } else {
             self.append_solution(solution, &Condition::Damaged);
-            let mut count = self.count_solutions(solution);
+            let mut count = self.count_solutions_inner(solution);
             self.undo_solution(solution);
 
             self.append_solution(solution, &Condition::Operational);
-            count += self.count_solutions(solution);
+            count += self.count_solutions_inner(solution);
             self.undo_solution(solution);
 
             return count;
@@ -300,21 +302,14 @@ impl SpringRecord {
 }
 
 pub fn run(input: &str) -> usize {
-    let mut count = 0;
-    for line in input.lines() {
-        println!("working on line {}", line);
-        let now = Instant::now();
-        count += line
-            .parse::<SpringRecord>()
-            .unwrap()
-            .count_solutions(&mut Vec::new());
-        println!(
-            "count {} took {} seconds",
-            count,
-            now.elapsed().as_secs_f32()
-        );
-    }
-    count
+    let records = input
+        .lines()
+        .map(|line| line.parse::<SpringRecord>().unwrap())
+        .collect::<Vec<_>>();
+    records
+        .par_iter()
+        .map(|sr| sr.count_solutions())
+        .sum()
 }
 
 #[cfg(test)]
@@ -539,7 +534,7 @@ mod tests {
             "???.### 1,1,3"
                 .parse::<SpringRecord>()
                 .unwrap()
-                .count_solutions(&mut Vec::new()),
+                .count_solutions(),
             1
         );
     }
@@ -549,7 +544,7 @@ mod tests {
             ".??..??...?##. 1,1,3"
                 .parse::<SpringRecord>()
                 .unwrap()
-                .count_solutions(&mut Vec::new()),
+                .count_solutions(),
             16384
         );
     }
@@ -559,7 +554,7 @@ mod tests {
             "?#?#?#?#?#?#?#? 1,3,1,6"
                 .parse::<SpringRecord>()
                 .unwrap()
-                .count_solutions(&mut Vec::new()),
+                .count_solutions(),
             1
         );
     }
@@ -569,7 +564,7 @@ mod tests {
             "????.#...#... 4,1,1"
                 .parse::<SpringRecord>()
                 .unwrap()
-                .count_solutions(&mut Vec::new()),
+                .count_solutions(),
             16
         );
     }
@@ -579,7 +574,7 @@ mod tests {
             "????.######..#####. 1,6,5"
                 .parse::<SpringRecord>()
                 .unwrap()
-                .count_solutions(&mut Vec::new()),
+                .count_solutions(),
             2500
         );
     }
@@ -589,7 +584,7 @@ mod tests {
             "?###???????? 3,2,1"
                 .parse::<SpringRecord>()
                 .unwrap()
-                .count_solutions(&mut Vec::new()),
+                .count_solutions(),
             506250
         );
     }
