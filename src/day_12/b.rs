@@ -1,4 +1,5 @@
 use rayon::prelude::*;
+use simple_tqdm::ParTqdm;
 use std::str::FromStr;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -308,6 +309,7 @@ pub fn run(input: &str) -> usize {
         .collect::<Vec<_>>();
     records
         .par_iter()
+        .tqdm()
         .map(|sr| sr.count_solutions())
         .sum()
 }
