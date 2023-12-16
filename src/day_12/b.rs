@@ -70,7 +70,7 @@ impl SpringRecord {
 
     /// Look at first groups of Condition::Damaged and see if they match
     fn check_first_groups(&self, solution: &Vec<Condition>) -> bool {
-        let first = solution
+        if let Some(first) = solution
         .split(|c|c==Condition::Unknown)
         .next();
     }
