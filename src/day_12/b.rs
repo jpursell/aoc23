@@ -159,17 +159,24 @@ impl SpringRecord {
                 .unwrap()
                 .len();
             if min_second_size > second_group {
-                // TODO make a good debug message
-                println!("r {}", format_record(&self.record));
-                println!("s {}", format_record(solution));
-                println!("expected {}", format_groups(&self.groups));
-                println!("but got  {}", format_groups(&first_groups));
+                // println!("r {}", format_record(&self.record));
+                // println!("s {}", format_record(solution));
+                // println!("{}<{}", " ".repeat(first.len()), min_second_size);
+                // println!("{}", format_groups(&self.groups));
                 return false;
             }
         }
         {
             let max_second_size = second.len();
+            if second.iter().all(|&c| c == Condition::Unknown) {
+                return true;
+            }
+
             if max_second_size < second_group {
+                // println!("r {}", format_record(&self.record));
+                // println!("s {}", format_record(solution));
+                // println!("  {}>{}", " ".repeat(first.len()), max_second_size);
+                // println!("{}", format_groups(&self.groups));
                 return false;
             }
         }
@@ -319,7 +326,7 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 525125);
+        assert_eq!(super::run(input), 525152);
     }
     #[test]
     fn test_check_1() {
