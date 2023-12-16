@@ -84,25 +84,67 @@ impl SpringRecord {
 
     /// Look at first groups of Condition::Damaged and see if they match
     fn check_first_groups(&self, solution: &Vec<Condition>) -> bool {
-        let first = if solution.iter().all(|&c| c != Condition::Unknown) {
+        let no_unknown = solution.iter().all(|&c| c != Condition::Unknown);
+        let first = if no_unknown {
             &solution[..]
         } else {
-            let first = solution.split(|&c| c == Condition::Unknown).next().unwrap();
-            if first.last() == Some(&Condition::Damaged) {
-                first.split(|&c| c == Condition::Damaged).next().unwrap()
-            } else {
-                first
+            let mut first = solution.split(|&c| c == Condition::Unknown).next().unwrap();
+            while first.last() == Some(&Condition::Damaged) {
+                first = &first[..first.len() - 1];
             }
+            first
         };
-        let groups = first
+        let first_groups = first
             .split(|&c| c == Condition::Operational)
             .map(|c| c.len())
             .filter(|&n| n > 0)
             .collect::<Vec<_>>();
-        self.groups
+        if self
+            .groups
             .iter()
-            .zip(groups.iter())
-            .all(|(&g0, &g1)| g0 == g1)
+            .zip(first_groups.iter())
+            .any(|(&g0, &g1)| g0 != g1)
+        {
+            return false;
+        }
+        if no_unknown {
+            return true;
+        }
+        let mut second = &solution[first.len()..];
+        while second.first() == Some(&Condition::Operational) {
+            second = &second[1..];
+        }
+        let second = second
+            .split(|&c| c == Condition::Operational)
+            .next()
+            .unwrap();
+        if first_groups.len() >= self.groups.len() {
+            // all groups used up in first group
+            let second = &solution[first.len()..];
+            if second.iter().any(|&c| c == Condition::Damaged) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+        let second_group = self.groups[first_groups.len()];
+        {
+            let min_second_size = second
+                .split(|&c| c == Condition::Unknown)
+                .next()
+                .unwrap()
+                .len();
+            if min_second_size > second_group {
+                return false;
+            }
+        }
+        {
+            let max_second_size = second.len();
+            if max_second_size < second_group {
+                return false;
+            }
+        }
+        true
     }
 
     /// Look at number of possible groups of Condition::Damaged and see if they match
@@ -302,6 +344,36 @@ mod tests {
         .check(&Vec::new()));
     }
     #[test]
+    fn test_check_1ca() {
+        assert!(!SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Damaged,
+                Condition::Unknown,
+            ],
+            vec![1, 1]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1cb() {
+        assert!(!SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Damaged,
+                Condition::Unknown,
+            ],
+            vec![1, 4]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
     fn test_check_1d() {
         assert!(SpringRecord::new(
             vec![
@@ -340,6 +412,20 @@ mod tests {
                 Condition::Damaged
             ],
             vec![1, 1, 1]
+        )
+        .check(&Vec::new()));
+    }
+    #[test]
+    fn test_check_1fa() {
+        assert!(!SpringRecord::new(
+            vec![
+                Condition::Operational,
+                Condition::Damaged,
+                Condition::Unknown,
+                Condition::Unknown,
+                Condition::Damaged
+            ],
+            vec![5]
         )
         .check(&Vec::new()));
     }
