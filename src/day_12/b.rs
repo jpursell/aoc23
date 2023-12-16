@@ -1,5 +1,7 @@
 use std::{str::FromStr, time::Instant};
 
+use itertools::Itertools;
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Condition {
     Operational,
@@ -48,6 +50,20 @@ impl FromStr for SpringRecord {
             .collect::<Vec<_>>();
         Ok(SpringRecord::new(record, groups))
     }
+}
+
+fn format_record(r: &Vec<Condition>) -> String {
+    r.iter()
+        .map(|&c| match c {
+            Condition::Damaged => '#',
+            Condition::Operational => '.',
+            Condition::Unknown => '?',
+        })
+        .collect::<String>()
+}
+
+fn format_groups(g: &Vec<usize>) -> String {
+    g.iter().map(|&g| format!("{}", g)).join(",")
 }
 
 impl SpringRecord {
@@ -105,6 +121,10 @@ impl SpringRecord {
             .zip(first_groups.iter())
             .any(|(&g0, &g1)| g0 != g1)
         {
+            // println!("r {}",format_record(&self.record));
+            // println!("s {}",format_record(solution));
+            // println!("expected {}",format_groups(&self.groups));
+            // println!("but got  {}",format_groups(&first_groups));
             return false;
         }
         if no_unknown {
@@ -122,6 +142,10 @@ impl SpringRecord {
             // all groups used up in first group
             let second = &solution[first.len()..];
             if second.iter().any(|&c| c == Condition::Damaged) {
+                // println!("r {}", format_record(&self.record));
+                // println!("s {}", format_record(solution));
+                // println!("expected {}", format_groups(&self.groups));
+                // println!("and got  {}", format_groups(&first_groups));
                 return false;
             } else {
                 return true;
@@ -135,6 +159,11 @@ impl SpringRecord {
                 .unwrap()
                 .len();
             if min_second_size > second_group {
+                // TODO make a good debug message
+                println!("r {}", format_record(&self.record));
+                println!("s {}", format_record(solution));
+                println!("expected {}", format_groups(&self.groups));
+                println!("but got  {}", format_groups(&first_groups));
                 return false;
             }
         }
