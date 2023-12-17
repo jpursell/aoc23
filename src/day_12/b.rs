@@ -167,9 +167,20 @@ impl SpringRecord {
             }
         }
         {
-            let max_second_size = second.len();
-            if second.iter().all(|&c| c == Condition::Unknown) {
-                return true;
+            // For checking the max next group size we need to check for this
+            // ..???..?#?... but not further then the next group with a
+            // '#' in it
+            let mut second = &solution[first.len()..];
+            while second.first() == Some(&Condition::Operational) {
+                second = &second[1..];
+            }
+
+            let mut max_second_size = 0;
+            for group in second.split(|&c| c == Condition::Operational) {
+                max_second_size = max_second_size.max(group.len());
+                if group.iter().any(|&c| c == Condition::Damaged) {
+                    break;
+                }
             }
 
             if max_second_size < second_group {
