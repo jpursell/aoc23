@@ -156,7 +156,7 @@ impl<'a> Solution<'a> {
 
     /// Look at number of possible groups of Condition::Damaged and see if they match
     fn check_num_groups(&self) -> bool {
-        if self.solution.iter().all(|&c| c != Condition::Unknown) {
+        if self.complete() {
             return self.solution
                 .split(|&c| c == Condition::Operational)
                 .map(|c| c.len())
