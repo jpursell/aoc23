@@ -29,17 +29,30 @@ struct Solution<'a> {
     /// Location of ? in record.record
     unknown_pos: Vec<usize>,
     /// index of next group to add
-    group_pos: usize,
+    group_pos: Option<usize>,
     pos_hist: Vec<usize>,
     record: &'a SpringRecord,
 }
 
 impl<'a> Solution<'a> {
     /// Return the index of the next group to add
-    fn find_group_pos(solution: &Vec<Condition>, groups: &Vec<usize>) {
-        todo!()
-
+    fn find_group_pos(solution: &Vec<Condition>, groups: &Vec<usize>) -> Option<usize> {
+        let mut count = 0;
+        for cluster in solution.split(|&c| c == Condition::Operational) {
+            if cluster.len() == 0 {
+                continue;
+            }
+            if cluster.iter().any(|&c| c == Condition::Unknown) {
+                return Some(count);
+            } else {
+                // this will sometimes be wrong but picked up by check
+                // assert_eq!(groups[count], cluster.len());
+                count += 1;
+            }
+        }
+        None
     }
+
     fn new(sr: &SpringRecord) -> Solution {
         let solution = sr.record.clone();
         let unknown_pos = solution
@@ -48,12 +61,14 @@ impl<'a> Solution<'a> {
             .filter(|(_, &c)| c == Condition::Unknown)
             .map(|(i, _)| i)
             .collect::<Vec<_>>();
+        let group_pos = Solution::find_group_pos(&solution, &sr.groups);
         Solution {
             solution,
             pos: 0,
             unknown_pos,
             pos_hist: Vec::new(),
             record: sr,
+            group_pos,
         }
     }
 
@@ -69,17 +84,55 @@ impl<'a> Solution<'a> {
     }
 
     fn push(&mut self, c: &Condition) -> Result<(), ()> {
-        // todo: Add a thing here to correctly add more than one # when about to create a new group
-        // if next group should be 4 and there are at least 4 ? in a row then add ####
-        // and if there's not enough room for all 4 or whateter is needed, return Err
-        //
-        // once that's working probably refuse to append to an existing group i.e. #?
-        //
-        // also, if adding a . and there's not enough room for the next group 
+        if *c == Condition::Damaged {
+            if self.group_pos.unwrap() >= self.record.groups.len() {
+                return Err(());
+            }
+            let current_group_size = self.record.groups[self.group_pos.unwrap()];
+            let insert_pos = self.unknown_pos[self.pos];
+
+            let group_size = self.solution[0..insert_pos]
+                .rsplit(|c| *c != Condition::Damaged)
+                .next()
+                .unwrap()
+                .len();
+            if group_size + 1 > current_group_size {
+                return Err(());
+            }
+            let max_group_size = self.solution[insert_pos..]
+                .split(|c| *c == Condition::Operational)
+                .next()
+                .unwrap()
+                .len()
+                + group_size;
+            if max_group_size < current_group_size {
+                return Err(());
+            }
+            let mut n_inserted = 0;
+            let mut pattern = vec![Condition::Damaged].repeat(current_group_size - group_size);
+            pattern.push(Condition::Operational);
+
+            for p in pattern.iter() {
+                self.solution[insert_pos + n_inserted] = *p;
+                n_inserted += 1;
+                if insert_pos + n_inserted >= self.solution.len()
+                    || self.solution[insert_pos + n_inserted] != Condition::Unknown
+                {
+                    break;
+                }
+            }
+            self.pos_hist.push(self.pos);
+            self.pos += n_inserted;
+            self.group_pos = Solution::find_group_pos(&self.solution, &self.record.groups);
+            return Ok(());
+        }
+
+        // TODO, if adding a . and there's not enough room for the next group
         // i.e. we need 3 but we have ??, then push 2 of '.'
         self.solution[self.unknown_pos[self.pos]] = *c;
         self.pos_hist.push(self.pos);
         self.pos += 1;
+        self.group_pos = Solution::find_group_pos(&self.solution, &self.record.groups);
         Ok(())
     }
 
@@ -89,6 +142,7 @@ impl<'a> Solution<'a> {
             self.solution[self.unknown_pos[self.pos]] = Condition::Unknown;
         }
         self.pos_hist.pop();
+        self.group_pos = Solution::find_group_pos(&self.solution, &self.record.groups);
     }
 
     /// Look at first groups of Condition::Damaged and see if they match
@@ -363,6 +417,24 @@ mod tests {
     fn test1() {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input), 525152);
+    }
+    #[test]
+    fn test_group_pos_1() {
+        let sr = ".#?# 1,1".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert_eq!(s.group_pos, Some(0));
+    }
+    #[test]
+    fn test_group_pos_2() {
+        let sr = ".#.?# 1,1".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert_eq!(s.group_pos, Some(1));
+    }
+    #[test]
+    fn test_group_pos_3() {
+        let sr = ".#..# 1,1".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert_eq!(s.group_pos, None);
     }
     #[test]
     fn test_check_1() {
