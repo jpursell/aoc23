@@ -22,14 +22,15 @@ impl TryFrom<char> for Condition {
 }
 
 #[derive(Debug)]
-struct Solution {
+struct Solution<'a> {
     solution: Vec<Condition>,
     pos: usize,
     unknown_pos: Vec<usize>,
     pos_hist: Vec<usize>,
+    record: &'a SpringRecord,
 }
 
-impl Solution {
+impl<'a> Solution<'a> {
     fn new(sr: &SpringRecord) -> Solution {
         let solution = sr.record.clone();
         let unknown_pos = solution
@@ -43,6 +44,7 @@ impl Solution {
             pos: 0,
             unknown_pos,
             pos_hist: Vec::new(),
+            record: sr,
         }
     }
 
@@ -62,6 +64,173 @@ impl Solution {
             self.solution[self.unknown_pos[self.pos]] = Condition::Unknown;
         }
         self.pos_hist.pop();
+    }
+
+    /// Look at first groups of Condition::Damaged and see if they match
+    fn check_first_groups(&self) -> bool {
+        let no_unknown = self.solution.iter().all(|&c| c != Condition::Unknown);
+        let first = if no_unknown {
+            &self.solution[..]
+        } else {
+            let mut first = self.solution.split(|&c| c == Condition::Unknown).next().unwrap();
+            while first.last() == Some(&Condition::Damaged) {
+                first = &first[..first.len() - 1];
+            }
+            first
+        };
+        let first_groups = first
+            .split(|&c| c == Condition::Operational)
+            .map(|c| c.len())
+            .filter(|&n| n > 0)
+            .collect::<Vec<_>>();
+        if self
+        .record
+            .groups
+            .iter()
+            .zip(first_groups.iter())
+            .any(|(&g0, &g1)| g0 != g1)
+        {
+            return false;
+        }
+        if no_unknown {
+            return true;
+        }
+        let mut second = &self.solution[first.len()..];
+        while second.first() == Some(&Condition::Operational) {
+            second = &second[1..];
+        }
+        let second = second
+            .split(|&c| c == Condition::Operational)
+            .next()
+            .unwrap();
+        if first_groups.len() >= self.record.groups.len() {
+            // all groups used up in first group
+            let second = &self.solution[first.len()..];
+            if second.iter().any(|&c| c == Condition::Damaged) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+        let second_group = self.record.groups[first_groups.len()];
+        {
+            let min_second_size = second
+                .split(|&c| c == Condition::Unknown)
+                .next()
+                .unwrap()
+                .len();
+            if min_second_size > second_group {
+                return false;
+            }
+        }
+        {
+            // For checking the max next group size we need to check for this
+            // ..???..?#?... but not further then the next group with a
+            // '#' in it
+            let mut second = &self.solution[first.len()..];
+            while second.first() == Some(&Condition::Operational) {
+                second = &second[1..];
+            }
+
+            let mut max_second_size = 0;
+            for group in second.split(|&c| c == Condition::Operational) {
+                max_second_size = max_second_size.max(group.len());
+                if group.iter().any(|&c| c == Condition::Damaged) {
+                    break;
+                }
+            }
+
+            if max_second_size < second_group {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Look at number of possible groups of Condition::Damaged and see if they match
+    fn check_num_groups(&self) -> bool {
+        if self.solution.iter().all(|&c| c != Condition::Unknown) {
+            return self.solution
+                .split(|&c| c == Condition::Operational)
+                .map(|c| c.len())
+                .filter(|&n| n > 0)
+                .count()
+                == self.record.groups.len();
+        }
+
+        assert!(self.solution.len() > 0);
+
+        {
+            let mut max_group_solution = self.solution.clone();
+            if max_group_solution[0] == Condition::Unknown {
+                max_group_solution[0] = Condition::Damaged;
+            }
+            (1..max_group_solution.len()).for_each(|i| {
+                if max_group_solution[i] != Condition::Unknown {
+                    return;
+                }
+                match max_group_solution[i - 1] {
+                    Condition::Damaged => {
+                        max_group_solution[i] = Condition::Operational;
+                    }
+                    Condition::Operational => {
+                        max_group_solution[i] = Condition::Damaged;
+                    }
+                    Condition::Unknown => panic!(),
+                }
+            });
+            let max_groups = max_group_solution
+                .split(|&c| c == Condition::Operational)
+                .map(|c| c.len())
+                .filter(|&n| n > 0)
+                .count();
+            if max_groups < self.record.groups.len() {
+                return false;
+            }
+        }
+        {
+            let mut min_group_solution = self.solution.clone();
+            if min_group_solution[0] == Condition::Unknown {
+                min_group_solution[0] = Condition::Operational;
+            }
+            (1..min_group_solution.len()).for_each(|i| {
+                if min_group_solution[i] != Condition::Unknown {
+                    return;
+                }
+                match min_group_solution[i - 1] {
+                    Condition::Damaged => {
+                        min_group_solution[i] = Condition::Damaged;
+                    }
+                    Condition::Operational => {
+                        min_group_solution[i] = Condition::Operational;
+                    }
+                    Condition::Unknown => panic!(),
+                }
+            });
+            let min_groups = min_group_solution
+                .split(|&c| c == Condition::Operational)
+                .map(|c| c.len())
+                .filter(|&n| n > 0)
+                .count();
+            if min_groups > self.record.groups.len() {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Check to see if current solution is possible. Can handle unknowns.
+    ///
+    /// The answer should be saved in a bool
+    fn check(&self) -> bool {
+        if !self.check_first_groups() {
+            return false;
+        }
+        if !self.check_num_groups() {
+            return false;
+        }
+        true
     }
 }
 
@@ -118,194 +287,13 @@ impl SpringRecord {
         SpringRecord { record, groups }
     }
 
-    /// Look at first groups of Condition::Damaged and see if they match
-    fn check_first_groups(&self, solution: &Vec<Condition>) -> bool {
-        let no_unknown = solution.iter().all(|&c| c != Condition::Unknown);
-        let first = if no_unknown {
-            &solution[..]
-        } else {
-            let mut first = solution.split(|&c| c == Condition::Unknown).next().unwrap();
-            while first.last() == Some(&Condition::Damaged) {
-                first = &first[..first.len() - 1];
-            }
-            first
-        };
-        let first_groups = first
-            .split(|&c| c == Condition::Operational)
-            .map(|c| c.len())
-            .filter(|&n| n > 0)
-            .collect::<Vec<_>>();
-        if self
-            .groups
-            .iter()
-            .zip(first_groups.iter())
-            .any(|(&g0, &g1)| g0 != g1)
-        {
-            // println!("r {}",format_record(&self.record));
-            // println!("s {}",format_record(solution));
-            // println!("expected {}",format_groups(&self.groups));
-            // println!("but got  {}",format_groups(&first_groups));
-            return false;
-        }
-        if no_unknown {
-            return true;
-        }
-        let mut second = &solution[first.len()..];
-        while second.first() == Some(&Condition::Operational) {
-            second = &second[1..];
-        }
-        let second = second
-            .split(|&c| c == Condition::Operational)
-            .next()
-            .unwrap();
-        if first_groups.len() >= self.groups.len() {
-            // all groups used up in first group
-            let second = &solution[first.len()..];
-            if second.iter().any(|&c| c == Condition::Damaged) {
-                // println!("r {}", format_record(&self.record));
-                // println!("s {}", format_record(solution));
-                // println!("expected {}", format_groups(&self.groups));
-                // println!("and got  {}", format_groups(&first_groups));
-                return false;
-            } else {
-                return true;
-            }
-        }
-        let second_group = self.groups[first_groups.len()];
-        {
-            let min_second_size = second
-                .split(|&c| c == Condition::Unknown)
-                .next()
-                .unwrap()
-                .len();
-            if min_second_size > second_group {
-                // println!("r {}", format_record(&self.record));
-                // println!("s {}", format_record(solution));
-                // println!("{}<{}", " ".repeat(first.len()), min_second_size);
-                // println!("{}", format_groups(&self.groups));
-                return false;
-            }
-        }
-        {
-            // For checking the max next group size we need to check for this
-            // ..???..?#?... but not further then the next group with a
-            // '#' in it
-            let mut second = &solution[first.len()..];
-            while second.first() == Some(&Condition::Operational) {
-                second = &second[1..];
-            }
-
-            let mut max_second_size = 0;
-            for group in second.split(|&c| c == Condition::Operational) {
-                max_second_size = max_second_size.max(group.len());
-                if group.iter().any(|&c| c == Condition::Damaged) {
-                    break;
-                }
-            }
-
-            if max_second_size < second_group {
-                // println!("r {}", format_record(&self.record));
-                // println!("s {}", format_record(solution));
-                // println!("  {}>{}", " ".repeat(first.len()), max_second_size);
-                // println!("{}", format_groups(&self.groups));
-                return false;
-            }
-        }
-        true
-    }
-
-    /// Look at number of possible groups of Condition::Damaged and see if they match
-    fn check_num_groups(&self, solution: &Vec<Condition>) -> bool {
-        if solution.iter().all(|&c| c != Condition::Unknown) {
-            return solution
-                .split(|&c| c == Condition::Operational)
-                .map(|c| c.len())
-                .filter(|&n| n > 0)
-                .count()
-                == self.groups.len();
-        }
-
-        assert!(solution.len() > 0);
-
-        {
-            let mut max_group_solution = solution.clone();
-            if max_group_solution[0] == Condition::Unknown {
-                max_group_solution[0] = Condition::Damaged;
-            }
-            (1..max_group_solution.len()).for_each(|i| {
-                if max_group_solution[i] != Condition::Unknown {
-                    return;
-                }
-                match max_group_solution[i - 1] {
-                    Condition::Damaged => {
-                        max_group_solution[i] = Condition::Operational;
-                    }
-                    Condition::Operational => {
-                        max_group_solution[i] = Condition::Damaged;
-                    }
-                    Condition::Unknown => panic!(),
-                }
-            });
-            let max_groups = max_group_solution
-                .split(|&c| c == Condition::Operational)
-                .map(|c| c.len())
-                .filter(|&n| n > 0)
-                .count();
-            if max_groups < self.groups.len() {
-                return false;
-            }
-        }
-        {
-            let mut min_group_solution = solution.clone();
-            if min_group_solution[0] == Condition::Unknown {
-                min_group_solution[0] = Condition::Operational;
-            }
-            (1..min_group_solution.len()).for_each(|i| {
-                if min_group_solution[i] != Condition::Unknown {
-                    return;
-                }
-                match min_group_solution[i - 1] {
-                    Condition::Damaged => {
-                        min_group_solution[i] = Condition::Damaged;
-                    }
-                    Condition::Operational => {
-                        min_group_solution[i] = Condition::Operational;
-                    }
-                    Condition::Unknown => panic!(),
-                }
-            });
-            let min_groups = min_group_solution
-                .split(|&c| c == Condition::Operational)
-                .map(|c| c.len())
-                .filter(|&n| n > 0)
-                .count();
-            if min_groups > self.groups.len() {
-                return false;
-            }
-        }
-
-        true
-    }
-
-    /// Check to see if current solution is possible. Can handle unknowns.
-    ///
-    /// The answer should be saved in a bool
-    fn check(&self, solution: &Vec<Condition>) -> bool {
-        if !self.check_first_groups(&solution) {
-            return false;
-        }
-        if !self.check_num_groups(&solution) {
-            return false;
-        }
-        true
-    }
 
     fn count_solutions(&self) -> usize {
         self.count_solutions_inner(&mut Solution::new(self))
     }
 
     fn count_solutions_inner(&self, solution: &mut Solution) -> usize {
-        if !self.check(&solution.solution) {
+        if !solution.check() {
             return 0;
         }
 
@@ -352,93 +340,93 @@ mod tests {
     fn test_check_1() {
         let sr = ".#. 1".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(sr.check(&s.solution))
+        assert!(s.check())
     }
     #[test]
     fn test_check_1a() {
         let sr = "... 1".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(!sr.check(&s.solution))
+        assert!(!s.check())
     }
     #[test]
     fn test_check_1b() {
         let sr = ".#. 2".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(!sr.check(&s.solution))
+        assert!(!s.check())
     }
     #[test]
     fn test_check_1c() {
         let sr = ".#.##? 1,2".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(sr.check(&s.solution))
+        assert!(s.check())
     }
     #[test]
     fn test_check_1ca() {
         let sr = ".#.##? 1,1".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(!sr.check(&s.solution))
+        assert!(!s.check())
     }
     #[test]
     fn test_check_1cb() {
         let sr = ".#.##? 1,4".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(!sr.check(&s.solution))
+        assert!(!s.check())
     }
     #[test]
     fn test_check_1d() {
         let sr = ".#.## 1,2".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(sr.check(&s.solution))
+        assert!(s.check())
     }
     #[test]
     fn test_check_1e() {
         let sr = ".#.## 1,3".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(!sr.check(&s.solution))
+        assert!(!s.check())
     }
     #[test]
     fn test_check_1f() {
         let sr = ".#??# 1,1,1".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(!sr.check(&s.solution))
+        assert!(!s.check())
     }
     #[test]
     fn test_check_1fa() {
         let sr = ".#??# 5".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(!sr.check(&s.solution))
+        assert!(!s.check())
     }
     #[test]
     fn test_check_1ga() {
         let sr = ".#??#.# 4,1".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(sr.check(&s.solution))
+        assert!(s.check())
     }
     #[test]
     fn test_check_1g() {
         let sr = ".#??#.# 3".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(!sr.check(&s.solution))
+        assert!(!s.check())
     }
     #[test]
     fn test_check_2() {
         let sr = ".?. 1".parse::<SpringRecord>().unwrap();
         let s = Solution::new(&sr);
-        assert!(sr.check(&s.solution))
+        assert!(s.check())
     }
     #[test]
     fn test_check_3() {
         let sr = ".?. 1".parse::<SpringRecord>().unwrap();
         let mut s = Solution::new(&sr);
         s.push(&Condition::Damaged);
-        assert!(sr.check(&s.solution))
+        assert!(s.check())
     }
     #[test]
     fn test_check_4() {
         let sr = ".?. 1".parse::<SpringRecord>().unwrap();
         let mut s = Solution::new(&sr);
         s.push(&Condition::Operational);
-        assert!(!sr.check(&s.solution))
+        assert!(!s.check())
     }
     #[test]
     fn test_line_1() {
