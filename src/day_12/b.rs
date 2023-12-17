@@ -48,6 +48,13 @@ impl<'a> Solution<'a> {
         }
     }
 
+    // fn groups(&mut self) -> Vec<usize> {
+    //     if let Some(g) = self.groups_cache {
+    //         return g;
+    //     }
+    //     todo!()
+    // }
+
     fn complete(&self) -> bool {
         self.pos >= self.unknown_pos.len()
     }
@@ -68,11 +75,11 @@ impl<'a> Solution<'a> {
 
     /// Look at first groups of Condition::Damaged and see if they match
     fn check_first_groups(&self) -> bool {
-        let no_unknown = self.solution.iter().all(|&c| c != Condition::Unknown);
+        let no_unknown = self.complete();
         let first = if no_unknown {
             &self.solution[..]
         } else {
-            let mut first = self.solution.split(|&c| c == Condition::Unknown).next().unwrap();
+            let mut first = &self.solution[..self.unknown_pos[self.pos]];
             while first.last() == Some(&Condition::Damaged) {
                 first = &first[..first.len() - 1];
             }
