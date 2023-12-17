@@ -70,68 +70,65 @@ impl<'a> Solution<'a> {
         }
     }
 
-    // fn groups(&mut self) -> Vec<usize> {
-    //     if let Some(g) = self.groups_cache {
-    //         return g;
-    //     }
-    //     todo!()
-    // }
-
     fn complete(&self) -> bool {
         self.pos >= self.unknown_pos.len()
     }
 
     fn push(&mut self, c: &Condition) -> Result<(), ()> {
-        if *c == Condition::Damaged {
-            if self.group_pos.unwrap() >= self.record.groups.len() {
-                return Err(());
-            }
-            let current_group_size = self.record.groups[self.group_pos.unwrap()];
-            let insert_pos = self.unknown_pos[self.pos];
-
-            let group_size = self.solution[0..insert_pos]
-                .rsplit(|c| *c != Condition::Damaged)
-                .next()
-                .unwrap()
-                .len();
-            if group_size + 1 > current_group_size {
-                return Err(());
-            }
-            let max_group_size = self.solution[insert_pos..]
-                .split(|c| *c == Condition::Operational)
-                .next()
-                .unwrap()
-                .len()
-                + group_size;
-            if max_group_size < current_group_size {
-                return Err(());
-            }
-            let mut n_inserted = 0;
-            let mut pattern = vec![Condition::Damaged].repeat(current_group_size - group_size);
-            pattern.push(Condition::Operational);
-
-            for p in pattern.iter() {
-                self.solution[insert_pos + n_inserted] = *p;
-                n_inserted += 1;
-                if insert_pos + n_inserted >= self.solution.len()
-                    || self.solution[insert_pos + n_inserted] != Condition::Unknown
-                {
-                    break;
+        match c {
+            Condition::Damaged => {
+                if self.group_pos.unwrap() >= self.record.groups.len() {
+                    return Err(());
                 }
-            }
-            self.pos_hist.push(self.pos);
-            self.pos += n_inserted;
-            self.group_pos = Solution::find_group_pos(&self.solution);
-            return Ok(());
-        }
+                let current_group_size = self.record.groups[self.group_pos.unwrap()];
+                let insert_pos = self.unknown_pos[self.pos];
 
-        // TODO, if adding a . and there's not enough room for the next group
-        // i.e. we need 3 but we have ??, then push 2 of '.'
-        self.solution[self.unknown_pos[self.pos]] = *c;
-        self.pos_hist.push(self.pos);
-        self.pos += 1;
-        self.group_pos = Solution::find_group_pos(&self.solution);
-        Ok(())
+                let group_size = self.solution[0..insert_pos]
+                    .rsplit(|c| *c != Condition::Damaged)
+                    .next()
+                    .unwrap()
+                    .len();
+                if group_size + 1 > current_group_size {
+                    return Err(());
+                }
+                let max_group_size = self.solution[insert_pos..]
+                    .split(|c| *c == Condition::Operational)
+                    .next()
+                    .unwrap()
+                    .len()
+                    + group_size;
+                if max_group_size < current_group_size {
+                    return Err(());
+                }
+                let mut n_inserted = 0;
+                let mut pattern = vec![Condition::Damaged].repeat(current_group_size - group_size);
+                pattern.push(Condition::Operational);
+
+                for p in pattern.iter() {
+                    self.solution[insert_pos + n_inserted] = *p;
+                    n_inserted += 1;
+                    if insert_pos + n_inserted >= self.solution.len()
+                        || self.solution[insert_pos + n_inserted] != Condition::Unknown
+                    {
+                        break;
+                    }
+                }
+                self.pos_hist.push(self.pos);
+                self.pos += n_inserted;
+                self.group_pos = Solution::find_group_pos(&self.solution);
+                return Ok(());
+            }
+            Condition::Operational => {
+                // TODO, if adding a . and there's not enough room for the next group
+                // i.e. we need 3 but we have ??, then push 2 of '.'
+                self.solution[self.unknown_pos[self.pos]] = *c;
+                self.pos_hist.push(self.pos);
+                self.pos += 1;
+                self.group_pos = Solution::find_group_pos(&self.solution);
+                return Ok(());
+            }
+            _ => panic!(),
+        }
     }
 
     fn pop(&mut self) {
