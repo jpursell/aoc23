@@ -24,13 +24,22 @@ impl TryFrom<char> for Condition {
 #[derive(Debug)]
 struct Solution<'a> {
     solution: Vec<Condition>,
+    /// Location of next unknown_pos to add
     pos: usize,
+    /// Location of ? in record.record
     unknown_pos: Vec<usize>,
+    /// index of next group to add
+    group_pos: usize,
     pos_hist: Vec<usize>,
     record: &'a SpringRecord,
 }
 
 impl<'a> Solution<'a> {
+    /// Return the index of the next group to add
+    fn find_group_pos(solution: &Vec<Condition>, groups: &Vec<usize>) {
+        todo!()
+
+    }
     fn new(sr: &SpringRecord) -> Solution {
         let solution = sr.record.clone();
         let unknown_pos = solution
@@ -59,10 +68,19 @@ impl<'a> Solution<'a> {
         self.pos >= self.unknown_pos.len()
     }
 
-    fn push(&mut self, c: &Condition) {
+    fn push(&mut self, c: &Condition) -> Result<(), ()> {
+        // todo: Add a thing here to correctly add more than one # when about to create a new group
+        // if next group should be 4 and there are at least 4 ? in a row then add ####
+        // and if there's not enough room for all 4 or whateter is needed, return Err
+        //
+        // once that's working probably refuse to append to an existing group i.e. #?
+        //
+        // also, if adding a . and there's not enough room for the next group 
+        // i.e. we need 3 but we have ??, then push 2 of '.'
         self.solution[self.unknown_pos[self.pos]] = *c;
         self.pos_hist.push(self.pos);
         self.pos += 1;
+        Ok(())
     }
 
     fn pop(&mut self) {
@@ -91,7 +109,7 @@ impl<'a> Solution<'a> {
             .filter(|&n| n > 0)
             .collect::<Vec<_>>();
         if self
-        .record
+            .record
             .groups
             .iter()
             .zip(first_groups.iter())
@@ -157,7 +175,8 @@ impl<'a> Solution<'a> {
     /// Look at number of possible groups of Condition::Damaged and see if they match
     fn check_num_groups(&self) -> bool {
         if self.complete() {
-            return self.solution
+            return self
+                .solution
                 .split(|&c| c == Condition::Operational)
                 .map(|c| c.len())
                 .filter(|&n| n > 0)
@@ -294,7 +313,6 @@ impl SpringRecord {
         SpringRecord { record, groups }
     }
 
-
     fn count_solutions(&self) -> usize {
         self.count_solutions_inner(&mut Solution::new(self))
     }
@@ -307,13 +325,16 @@ impl SpringRecord {
         if solution.complete() {
             return 1;
         } else {
-            solution.push(&Condition::Damaged);
-            let mut count = self.count_solutions_inner(solution);
-            solution.pop();
+            let mut count = 0;
+            if let Ok(_) = solution.push(&Condition::Damaged) {
+                count += self.count_solutions_inner(solution);
+                solution.pop();
+            }
 
-            solution.push(&Condition::Operational);
-            count += self.count_solutions_inner(solution);
-            solution.pop();
+            if let Ok(_) = solution.push(&Condition::Operational) {
+                count += self.count_solutions_inner(solution);
+                solution.pop();
+            }
 
             return count;
         }
@@ -425,14 +446,14 @@ mod tests {
     fn test_check_3() {
         let sr = ".?. 1".parse::<SpringRecord>().unwrap();
         let mut s = Solution::new(&sr);
-        s.push(&Condition::Damaged);
+        s.push(&Condition::Damaged).unwrap();
         assert!(s.check())
     }
     #[test]
     fn test_check_4() {
         let sr = ".?. 1".parse::<SpringRecord>().unwrap();
         let mut s = Solution::new(&sr);
-        s.push(&Condition::Operational);
+        s.push(&Condition::Operational).unwrap();
         assert!(!s.check())
     }
     #[test]
