@@ -36,7 +36,7 @@ struct Solution<'a> {
 
 impl<'a> Solution<'a> {
     /// Return the index of the next group to add
-    fn find_group_pos(solution: &Vec<Condition>, groups: &Vec<usize>) -> Option<usize> {
+    fn find_group_pos(solution: &Vec<Condition>) -> Option<usize> {
         let mut count = 0;
         for cluster in solution.split(|&c| c == Condition::Operational) {
             if cluster.len() == 0 {
@@ -45,8 +45,6 @@ impl<'a> Solution<'a> {
             if cluster.iter().any(|&c| c == Condition::Unknown) {
                 return Some(count);
             } else {
-                // this will sometimes be wrong but picked up by check
-                // assert_eq!(groups[count], cluster.len());
                 count += 1;
             }
         }
@@ -61,7 +59,7 @@ impl<'a> Solution<'a> {
             .filter(|(_, &c)| c == Condition::Unknown)
             .map(|(i, _)| i)
             .collect::<Vec<_>>();
-        let group_pos = Solution::find_group_pos(&solution, &sr.groups);
+        let group_pos = Solution::find_group_pos(&solution);
         Solution {
             solution,
             pos: 0,
@@ -123,7 +121,7 @@ impl<'a> Solution<'a> {
             }
             self.pos_hist.push(self.pos);
             self.pos += n_inserted;
-            self.group_pos = Solution::find_group_pos(&self.solution, &self.record.groups);
+            self.group_pos = Solution::find_group_pos(&self.solution);
             return Ok(());
         }
 
@@ -132,7 +130,7 @@ impl<'a> Solution<'a> {
         self.solution[self.unknown_pos[self.pos]] = *c;
         self.pos_hist.push(self.pos);
         self.pos += 1;
-        self.group_pos = Solution::find_group_pos(&self.solution, &self.record.groups);
+        self.group_pos = Solution::find_group_pos(&self.solution);
         Ok(())
     }
 
@@ -142,7 +140,7 @@ impl<'a> Solution<'a> {
             self.solution[self.unknown_pos[self.pos]] = Condition::Unknown;
         }
         self.pos_hist.pop();
-        self.group_pos = Solution::find_group_pos(&self.solution, &self.record.groups);
+        self.group_pos = Solution::find_group_pos(&self.solution);
     }
 
     /// Look at first groups of Condition::Damaged and see if they match
