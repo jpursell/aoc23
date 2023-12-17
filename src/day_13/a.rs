@@ -1,4 +1,8 @@
-use std::str::FromStr;
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 
 #[derive(Debug, Hash)]
 enum Pix {
@@ -39,9 +43,56 @@ impl FromStr for Pattern {
 }
 
 impl Pattern {
+    fn find_mirror(seq: &Vec<u64>) -> Option<usize> {
+        let starts = seq
+            .windows(2)
+            .enumerate()
+            .filter(|(_, v)| v[0] == v[1])
+            .map(|(i, _)| i)
+            .collect::<Vec<_>>();
+        for start in starts {
+            let all_match = seq[start + 1..]
+                .iter()
+                .zip(seq[..start + 1].iter().rev())
+                .all(|(a, b)| a == b);
+            if all_match {
+                return Some(start + 1);
+            }
+        }
+        None
+    }
+    fn hash_rows(&self) -> Vec<u64> {
+        self.pix
+            .iter()
+            .map(|row| {
+                let mut s = DefaultHasher::new();
+                row.iter().for_each(|p| {
+                    p.hash(&mut s);
+                });
+                s.finish()
+            })
+            .collect::<Vec<_>>()
+    }
+    fn hash_cols(&self) -> Vec<u64> {
+        let mut hashers = self.pix[0]
+            .iter()
+            .map(|_| DefaultHasher::new())
+            .collect::<Vec<_>>();
+        self.pix.iter().for_each(|row| {
+            row.iter()
+                .zip(hashers.iter_mut())
+                .for_each(|(p, s)| p.hash(s))
+        });
+        hashers.iter().map(|s| s.finish()).collect::<Vec<_>>()
+    }
     fn summarize(&self) -> usize {
-        dbg!(self);
-        todo!()
+        if let Some(row) = Pattern::find_mirror(&self.hash_rows()) {
+            return row * 100;
+        };
+        if let Some(col) = Pattern::find_mirror(&self.hash_cols()) {
+            return col;
+        };
+        panic!()
     }
 }
 
@@ -66,8 +117,10 @@ impl FromStr for Patterns {
                 lines.push(line);
             } else {
                 patterns.push(lines.join("\n").parse::<Pattern>().unwrap());
+                lines.clear()
             }
         }
+        patterns.push(lines.join("\n").parse::<Pattern>().unwrap());
         Ok(Patterns { patterns })
     }
 }
