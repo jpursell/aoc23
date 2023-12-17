@@ -22,24 +22,59 @@ impl TryFrom<char> for Condition {
 }
 
 #[derive(Debug)]
+struct Solution {
+    solution: Vec<Condition>,
+    pos: usize,
+    unknown_pos: Vec<usize>,
+    pos_hist: Vec<usize>,
+}
+
+impl Solution {
+    fn new(sr: &SpringRecord) -> Solution {
+        let solution = sr.record.clone();
+        let unknown_pos = solution
+            .iter()
+            .enumerate()
+            .filter(|(_, &c)| c == Condition::Unknown)
+            .map(|(i, _)| i)
+            .collect::<Vec<_>>();
+        Solution {
+            solution,
+            pos: 0,
+            unknown_pos,
+            pos_hist: Vec::new(),
+        }
+    }
+
+    fn complete(&self) -> bool {
+        self.pos >= self.unknown_pos.len()
+    }
+
+    fn push(&mut self, c: &Condition) {
+        self.solution[self.unknown_pos[self.pos]] = *c;
+        self.pos_hist.push(self.pos);
+        self.pos += 1;
+    }
+
+    fn pop(&mut self) {
+        while self.pos != *self.pos_hist.last().unwrap() {
+            self.pos -= 1;
+            self.solution[self.unknown_pos[self.pos]] = Condition::Unknown;
+        }
+        self.pos_hist.pop();
+    }
+}
+
+#[derive(Debug)]
 struct SpringRecord {
     record: Vec<Condition>,
     groups: Vec<usize>,
-    num_unknown: usize,
 }
 
 impl FromStr for SpringRecord {
     type Err = &'static str;
     fn from_str(line: &str) -> Result<Self, <Self as FromStr>::Err> {
         let (record, groups) = line.split_once(" ").unwrap();
-        let record = (0..5)
-            .map(|_| record.to_string())
-            .collect::<Vec<_>>()
-            .join(&"?");
-        let groups = (0..5)
-            .map(|_| groups.to_string())
-            .collect::<Vec<_>>()
-            .join(&",");
         let record = record
             .chars()
             .map(|c| Condition::try_from(c).unwrap())
@@ -68,34 +103,19 @@ impl FromStr for SpringRecord {
 
 impl SpringRecord {
     fn new(record: Vec<Condition>, groups: Vec<usize>) -> SpringRecord {
-        let num_unknown = record.iter().filter(|&&c| c == Condition::Unknown).count();
-        SpringRecord {
-            record,
-            groups,
-            num_unknown,
-        }
-    }
-    /// Check if there are no more unknowns
-    fn complete(&self, solution: &Vec<Condition>) -> bool {
-        self.num_unknown == solution.len()
+        SpringRecord { record, groups }
     }
 
-    fn combine_solution(&self, solution: &Vec<Condition>) -> Vec<Condition> {
-        let mut sol_chars = solution.iter();
-        self.record
-            .iter()
-            .map(|&c| {
-                if c == Condition::Unknown {
-                    if let Some(&s) = sol_chars.next() {
-                        return s;
-                    } else {
-                        return Condition::Unknown;
-                    }
-                } else {
-                    return c;
-                }
-            })
+    fn multiply(&self, count: usize) -> SpringRecord {
+        let record = (0..count)
+            .map(|_| self.record.clone())
             .collect::<Vec<_>>()
+            .join(&Condition::Unknown);
+        let groups = (0..count)
+            .map(|_| self.groups.clone())
+            .collect::<Vec<_>>()
+            .concat();
+        SpringRecord { record, groups }
     }
 
     /// Look at first groups of Condition::Damaged and see if they match
@@ -271,7 +291,6 @@ impl SpringRecord {
     ///
     /// The answer should be saved in a bool
     fn check(&self, solution: &Vec<Condition>) -> bool {
-        let solution = self.combine_solution(solution);
         if !self.check_first_groups(&solution) {
             return false;
         }
@@ -281,32 +300,25 @@ impl SpringRecord {
         true
     }
 
-    fn append_solution(&self, solution: &mut Vec<Condition>, condition: &Condition) {
-        solution.push(*condition);
-    }
-
-    fn undo_solution(&self, solution: &mut Vec<Condition>) {
-        solution.pop();
-    }
-
     fn count_solutions(&self) -> usize {
-        self.count_solutions_inner(&mut Vec::new())
+        self.count_solutions_inner(&mut Solution::new(self))
     }
-    fn count_solutions_inner(&self, solution: &mut Vec<Condition>) -> usize {
-        if !self.check(solution) {
+
+    fn count_solutions_inner(&self, solution: &mut Solution) -> usize {
+        if !self.check(&solution.solution) {
             return 0;
         }
 
-        if self.complete(&solution) {
+        if solution.complete() {
             return 1;
         } else {
-            self.append_solution(solution, &Condition::Damaged);
+            solution.push(&Condition::Damaged);
             let mut count = self.count_solutions_inner(solution);
-            self.undo_solution(solution);
+            solution.pop();
 
-            self.append_solution(solution, &Condition::Operational);
+            solution.push(&Condition::Operational);
             count += self.count_solutions_inner(solution);
-            self.undo_solution(solution);
+            solution.pop();
 
             return count;
         }
@@ -316,7 +328,7 @@ impl SpringRecord {
 pub fn run(input: &str) -> usize {
     let records = input
         .lines()
-        .map(|line| line.parse::<SpringRecord>().unwrap())
+        .map(|line| line.parse::<SpringRecord>().unwrap().multiply(5))
         .collect::<Vec<_>>();
     records
         .par_iter()
@@ -327,7 +339,7 @@ pub fn run(input: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::day_12::b::Condition;
+    use crate::day_12::b::{Condition, Solution};
 
     use super::SpringRecord;
 
@@ -338,208 +350,95 @@ mod tests {
     }
     #[test]
     fn test_check_1() {
-        assert!(SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Operational
-            ],
-            vec![1]
-        )
-        .check(&Vec::new()));
+        let sr = ".#. 1".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(sr.check(&s.solution))
     }
     #[test]
     fn test_check_1a() {
-        assert!(!SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Operational,
-                Condition::Operational
-            ],
-            vec![1]
-        )
-        .check(&Vec::new()));
+        let sr = "... 1".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(!sr.check(&s.solution))
     }
     #[test]
     fn test_check_1b() {
-        assert!(!SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Operational
-            ],
-            vec![2]
-        )
-        .check(&Vec::new()));
+        let sr = ".#. 2".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(!sr.check(&s.solution))
     }
     #[test]
     fn test_check_1c() {
-        assert!(SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Damaged,
-                Condition::Unknown,
-            ],
-            vec![1, 2]
-        )
-        .check(&Vec::new()));
+        let sr = ".#.##? 1,2".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(sr.check(&s.solution))
     }
     #[test]
     fn test_check_1ca() {
-        assert!(!SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Damaged,
-                Condition::Unknown,
-            ],
-            vec![1, 1]
-        )
-        .check(&Vec::new()));
+        let sr = ".#.##? 1,1".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(!sr.check(&s.solution))
     }
     #[test]
     fn test_check_1cb() {
-        assert!(!SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Damaged,
-                Condition::Unknown,
-            ],
-            vec![1, 4]
-        )
-        .check(&Vec::new()));
+        let sr = ".#.##? 1,4".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(!sr.check(&s.solution))
     }
     #[test]
     fn test_check_1d() {
-        assert!(SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Damaged
-            ],
-            vec![1, 2]
-        )
-        .check(&Vec::new()));
+        let sr = ".#.## 1,2".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(sr.check(&s.solution))
     }
     #[test]
     fn test_check_1e() {
-        assert!(!SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Damaged
-            ],
-            vec![1, 3]
-        )
-        .check(&Vec::new()));
+        let sr = ".#.## 1,3".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(!sr.check(&s.solution))
     }
     #[test]
     fn test_check_1f() {
-        assert!(!SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Unknown,
-                Condition::Unknown,
-                Condition::Damaged
-            ],
-            vec![1, 1, 1]
-        )
-        .check(&Vec::new()));
+        let sr = ".#??# 1,1,1".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(!sr.check(&s.solution))
     }
     #[test]
     fn test_check_1fa() {
-        assert!(!SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Unknown,
-                Condition::Unknown,
-                Condition::Damaged
-            ],
-            vec![5]
-        )
-        .check(&Vec::new()));
+        let sr = ".#??# 5".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(!sr.check(&s.solution))
     }
     #[test]
     fn test_check_1ga() {
-        assert!(SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Unknown,
-                Condition::Unknown,
-                Condition::Damaged,
-                Condition::Operational,
-                Condition::Damaged
-            ],
-            vec![4, 1]
-        )
-        .check(&Vec::new()));
+        let sr = ".#??#.# 4,1".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(sr.check(&s.solution))
     }
     #[test]
     fn test_check_1g() {
-        assert!(!SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Damaged,
-                Condition::Unknown,
-                Condition::Unknown,
-                Condition::Damaged,
-                Condition::Operational,
-                Condition::Damaged
-            ],
-            vec![3]
-        )
-        .check(&Vec::new()));
+        let sr = ".#??#.# 3".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(!sr.check(&s.solution))
     }
     #[test]
     fn test_check_2() {
-        assert!(SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Unknown,
-                Condition::Operational
-            ],
-            vec![1]
-        )
-        .check(&Vec::new()));
+        let sr = ".?. 1".parse::<SpringRecord>().unwrap();
+        let s = Solution::new(&sr);
+        assert!(sr.check(&s.solution))
     }
     #[test]
     fn test_check_3() {
-        assert!(SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Unknown,
-                Condition::Operational
-            ],
-            vec![1]
-        )
-        .check(&vec![Condition::Damaged]));
+        let sr = ".?. 1".parse::<SpringRecord>().unwrap();
+        let mut s = Solution::new(&sr);
+        s.push(&Condition::Damaged);
+        assert!(sr.check(&s.solution))
     }
     #[test]
     fn test_check_4() {
-        assert!(!SpringRecord::new(
-            vec![
-                Condition::Operational,
-                Condition::Unknown,
-                Condition::Operational
-            ],
-            vec![1]
-        )
-        .check(&vec![Condition::Operational]));
+        let sr = ".?. 1".parse::<SpringRecord>().unwrap();
+        let mut s = Solution::new(&sr);
+        s.push(&Condition::Operational);
+        assert!(!sr.check(&s.solution))
     }
     #[test]
     fn test_line_1() {
@@ -547,6 +446,7 @@ mod tests {
             "???.### 1,1,3"
                 .parse::<SpringRecord>()
                 .unwrap()
+                .multiply(5)
                 .count_solutions(),
             1
         );
@@ -557,6 +457,7 @@ mod tests {
             ".??..??...?##. 1,1,3"
                 .parse::<SpringRecord>()
                 .unwrap()
+                .multiply(5)
                 .count_solutions(),
             16384
         );
@@ -567,6 +468,7 @@ mod tests {
             "?#?#?#?#?#?#?#? 1,3,1,6"
                 .parse::<SpringRecord>()
                 .unwrap()
+                .multiply(5)
                 .count_solutions(),
             1
         );
@@ -577,6 +479,7 @@ mod tests {
             "????.#...#... 4,1,1"
                 .parse::<SpringRecord>()
                 .unwrap()
+                .multiply(5)
                 .count_solutions(),
             16
         );
@@ -587,6 +490,7 @@ mod tests {
             "????.######..#####. 1,6,5"
                 .parse::<SpringRecord>()
                 .unwrap()
+                .multiply(5)
                 .count_solutions(),
             2500
         );
@@ -597,6 +501,7 @@ mod tests {
             "?###???????? 3,2,1"
                 .parse::<SpringRecord>()
                 .unwrap()
+                .multiply(5)
                 .count_solutions(),
             506250
         );
