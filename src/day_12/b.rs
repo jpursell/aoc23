@@ -129,20 +129,30 @@ impl<'a> Solution<'a> {
                     self.group_pos = Solution::find_group_pos(&self.solution);
                     return Ok(());
                 }
-                // let current_group_size = self.record.groups[self.group_pos.unwrap()];
-                // let insert_pos = self.unknown_pos[self.pos];
 
-                // let group_size = self.solution[0..insert_pos]
-                //     .rsplit(|c| *c != Condition::Damaged)
-                //     .next()
-                //     .unwrap()
-                //     .len();
-                // if group_size + 1 > current_group_size {
-                //     return Err(());
-                // }
+                let current_group_size = self.record.groups[self.group_pos.unwrap()];
+                let insert_pos = self.unknown_pos[self.pos];
+
+                let group_size = self.solution[0..insert_pos]
+                    .rsplit(|c| *c != Condition::Damaged)
+                    .next()
+                    .unwrap()
+                    .len();
+                if group_size > 0 {
+                    if group_size != current_group_size {
+                        return Err(());
+                    } else {
+                        self.pos_hist.push(self.pos);
+                        self.solution[self.unknown_pos[self.pos]] = Condition::Operational;
+                        self.pos += 1;
+                        self.group_pos = Solution::find_group_pos(&self.solution);
+                        return Ok(());
+                    }
+                }
 
                 // TODO, if adding a . and there's not enough room for the next group
                 // i.e. we need 3 but we have ??, then push 2 of '.'
+
                 self.solution[self.unknown_pos[self.pos]] = *c;
                 self.pos_hist.push(self.pos);
                 self.pos += 1;
