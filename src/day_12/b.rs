@@ -119,6 +119,28 @@ impl<'a> Solution<'a> {
                 return Ok(());
             }
             Condition::Operational => {
+                // If there are no more groups just fill with .
+                if self.group_pos.unwrap() >= self.record.groups.len() {
+                    self.pos_hist.push(self.pos);
+                    while !self.complete() {
+                        self.solution[self.unknown_pos[self.pos]] = Condition::Operational;
+                        self.pos += 1;
+                    }
+                    self.group_pos = Solution::find_group_pos(&self.solution);
+                    return Ok(());
+                }
+                // let current_group_size = self.record.groups[self.group_pos.unwrap()];
+                // let insert_pos = self.unknown_pos[self.pos];
+
+                // let group_size = self.solution[0..insert_pos]
+                //     .rsplit(|c| *c != Condition::Damaged)
+                //     .next()
+                //     .unwrap()
+                //     .len();
+                // if group_size + 1 > current_group_size {
+                //     return Err(());
+                // }
+
                 // TODO, if adding a . and there's not enough room for the next group
                 // i.e. we need 3 but we have ??, then push 2 of '.'
                 self.solution[self.unknown_pos[self.pos]] = *c;
