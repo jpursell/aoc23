@@ -92,6 +92,10 @@ impl Solution {
             return None;
         }
         s.record_pos += 1;
+        // detect if we finished the solution
+        if s.record_pos == sr.record.len() {
+            s.extra_space -= 1;
+        }
         Some(s)
     }
 }
@@ -237,6 +241,8 @@ mod tests {
             2
         );
     }
+    // todo: add more trivial tests
+
     #[test]
     fn test_a_line_1() {
         assert_eq!(
