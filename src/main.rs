@@ -12,13 +12,31 @@ mod day_7;
 mod day_8;
 mod day_9;
 
+fn parse_error_message(args: &Vec<String>) {
+    println!("Usage: {} NUM [-d/--debug]", args[0]);
+}
 fn main() {
     let args = std::env::args().collect::<Vec<_>>();
-    if args.len() != 2 {
-        println!("Usage: {} NUM", args[0]);
+    if args.len() != 2 && args.len() != 3 {
+        parse_error_message(&args);
         return;
     }
     let num = args[1].parse::<u8>().unwrap();
+    let debug = match args.len() {
+        2 => false,
+        3 => {
+            if args[2] == "-d" || args[2] == "--debug" {
+                true
+            } else {
+                parse_error_message(&args);
+                return;
+            }
+        }
+        _ => {
+            parse_error_message(&args);
+            return;
+        }
+    };
     match num {
         1 => {
             day_1::day_1();
@@ -54,7 +72,11 @@ fn main() {
             day_11::run();
         }
         12 => {
-            day_12::run();
+            if debug {
+                day_12::run(day_12::b::RunMode::Time);
+            } else {
+                day_12::run(day_12::b::RunMode::Fast);
+            }
         }
         13 => {
             day_13::run();

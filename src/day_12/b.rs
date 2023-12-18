@@ -1,6 +1,6 @@
 use rayon::prelude::*;
 use simple_tqdm::ParTqdm;
-use std::str::FromStr;
+use std::{str::FromStr, time::Instant};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Condition {
@@ -448,7 +448,19 @@ impl SpringRecord {
     }
 }
 
-pub fn run(input: &str) -> usize {
+pub enum RunMode {
+    Fast,
+    Time,
+}
+
+pub fn run(input: &str, mode:RunMode) -> usize {
+    match mode {
+        RunMode::Fast => run_fast(input),
+        RunMode::Time => run_time(input),
+    }
+}
+
+pub fn run_fast(input: &str) -> usize {
     let records = input
         .lines()
         .map(|line| line.parse::<SpringRecord>().unwrap().multiply(5))
@@ -460,16 +472,34 @@ pub fn run(input: &str) -> usize {
         .sum()
 }
 
+pub fn run_time(input: &str) -> usize {
+    let records = input
+        .lines()
+        .map(|line| line.parse::<SpringRecord>().unwrap().multiply(5))
+        .collect::<Vec<_>>();
+    records
+        .iter()
+        .enumerate()
+        .map(|(i, sr)| {
+            let now = Instant::now();
+            let count = sr.count_solutions();
+            println!("{} took {}",i, now.elapsed().as_secs_f32());
+            count
+        }
+        )
+        .sum()
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::day_12::b::{Condition, Solution};
+    use crate::day_12::b::{Condition, Solution, RunMode};
 
     use super::SpringRecord;
 
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 525152);
+        assert_eq!(super::run(input, RunMode::Fast), 525152);
     }
     #[test]
     fn test_group_pos_1() {
