@@ -150,14 +150,40 @@ impl<'a> Solution<'a> {
                     }
                 }
 
-                // TODO, if adding a . and there's not enough room for the next group
-                // i.e. we need 3 but we have ??, then push 2 of '.'
-
-                self.solution[self.unknown_pos[self.pos]] = *c;
-                self.pos_hist.push(self.pos);
-                self.pos += 1;
-                self.group_pos = Solution::find_group_pos(&self.solution);
-                return Ok(());
+                if self.pos == self.unknown_pos.len() - 1
+                    || self.unknown_pos[self.pos + 1] != insert_pos + 1
+                {
+                    // we are not in a cluster situation so just insert . and go
+                    self.solution[self.unknown_pos[self.pos]] = Condition::Operational;
+                    self.pos_hist.push(self.pos);
+                    self.pos += 1;
+                    self.group_pos = Solution::find_group_pos(&self.solution);
+                    return Ok(());
+                } else {
+                    // we are in a cluster of .?? so check how many
+                    let cluster_size = self.solution[insert_pos..]
+                        .split(|c| *c != Condition::Unknown)
+                        .next()
+                        .unwrap()
+                        .len();
+                    if cluster_size <= current_group_size {
+                        // fill it up
+                        self.pos_hist.push(self.pos);
+                        for _ in 0..cluster_size {
+                            self.solution[self.unknown_pos[self.pos]] = Condition::Operational;
+                            self.pos += 1;
+                        }
+                        self.group_pos = Solution::find_group_pos(&self.solution);
+                        return Ok(());
+                    } else {
+                        // just insert a single .
+                        self.pos_hist.push(self.pos);
+                        self.solution[self.unknown_pos[self.pos]] = Condition::Operational;
+                        self.pos += 1;
+                        self.group_pos = Solution::find_group_pos(&self.solution);
+                        return Ok(());
+                    }
+                }
             }
             _ => panic!(),
         }
