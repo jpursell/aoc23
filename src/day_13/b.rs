@@ -43,11 +43,18 @@ impl FromStr for Pattern {
 }
 
 impl Pattern {
-    fn find_mirror(seq: &Vec<u64>) -> Option<usize> {
+    fn find_mirror(seq: &Vec<u64>, skip: Option<usize>) -> Option<usize> {
         let starts = seq
             .windows(2)
             .enumerate()
-            .filter(|(_, v)| v[0] == v[1])
+            .filter(|(i, v)| {
+                if let Some(s) = skip {
+                    if s == (*i) + 1 {
+                        return false;
+                    }
+                }
+                v[0] == v[1]
+            })
             .map(|(i, _)| i)
             .collect::<Vec<_>>();
         for start in starts {
@@ -95,17 +102,33 @@ impl Pattern {
     }
 
     fn summarize(&self) -> usize {
+        if let Some(row) = Pattern::find_mirror(&self.hash_rows(), None) {
+            return row * 100;
+        };
+        if let Some(col) = Pattern::find_mirror(&self.hash_cols(), None) {
+            return col;
+        };
+        panic!()
+    }
+
+    fn summarize_smudge(&self) -> usize {
+        let s = self.summarize();
         for (irow, row) in self.pix.iter().enumerate() {
             for (icol, _col) in row.iter().enumerate() {
                 let c = &mut self.clone();
                 c.swap(irow, icol);
-                if let Some(row) = Pattern::find_mirror(&c.hash_rows()) {
-                    println!("irow {} icol {} row {}", irow, icol, row);
-                    // return row * 100;
+                if let Some(row) = Pattern::find_mirror(&c.hash_rows(), Some(s / 100)) {
+                    let val = row * 100;
+                    // println!("irow {} icol {} row {} val {}", irow, icol, row, val);
+                    if val != s {
+                        return val;
+                    }
                 };
-                if let Some(col) = Pattern::find_mirror(&c.hash_cols()) {
-                    println!("irow {} icol {} col {}", irow, icol, col);
-                    // return col;
+                if let Some(col) = Pattern::find_mirror(&c.hash_cols(), Some(s)) {
+                    // println!("irow {} icol {} col {}", irow, icol, col);
+                    if col != s {
+                        return col;
+                    }
                 };
             }
         }
@@ -120,7 +143,12 @@ struct Patterns {
 
 impl Patterns {
     fn summarize(&self) -> usize {
-        self.patterns.iter().map(|p| p.summarize()).sum()
+        self.patterns
+            .iter()
+            .enumerate()
+            // .inspect(|(i, _)| println!("process map {}", i))
+            .map(|(_, p)| p.summarize_smudge())
+            .sum()
     }
 }
 
@@ -148,9 +176,34 @@ pub fn run(input: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use super::Pattern;
+
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input), 400);
+    }
+    #[test]
+    fn trouble_case() {
+        let input = r#"......########...
+....#..#.##.#..#.
+##....########...
+###..#.#.##.#.#..
+...#....####....#
+#####.########.##
+..#....##..##....
+###....#.##.#....
+##.#.#..#..#..#.#
+###.....####.....
+###.#.##....##.#.
+###.#####..#####.
+...#...#.##.#...#
+..#####......####
+..#.####.##.####.
+......#.#.##.#...
+..#.####.##.####."#;
+        let p = input.parse::<Pattern>().unwrap();
+        println!("summarize {}", p.summarize());
+        println!("summarize smudge {}", p.summarize_smudge());
     }
 }
