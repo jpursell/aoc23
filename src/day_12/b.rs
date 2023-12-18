@@ -241,7 +241,59 @@ mod tests {
             2
         );
     }
-    // todo: add more trivial tests
+    #[test]
+    fn test_trivial_6() {
+        assert_eq!(
+            "#???? 1,2"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(),
+            2
+        );
+    }
+    #[test]
+    fn test_trivial_7() {
+        assert_eq!(
+            "#???# 1,2"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_trivial_8() {
+        assert_eq!(
+            "????? 1,1,1"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_trivial_9() {
+        assert_eq!(
+            "?????? 1,1,1"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(),
+            4
+        );
+    }
+
+    #[test]
+    fn test_trivial_10() {
+        assert_eq!(
+            "?????? 1,2,1"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(),
+            1
+        );
+    }
 
     #[test]
     fn test_a_line_1() {
@@ -261,6 +313,27 @@ mod tests {
                 .unwrap()
                 .count_solutions(),
             4
+        );
+    }
+    #[test]
+    fn test_a_line_3() {
+        assert_eq!(
+            "?#?#?#?#?#?#?#? 1,3,1,6"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(),
+            1
+        );
+    }
+    #[test]
+    fn test_a_line_4() {
+        // TODO: debug this
+        assert_eq!(
+            "????.#...#... 4,1,1"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(),
+            1
         );
     }
     #[test]
