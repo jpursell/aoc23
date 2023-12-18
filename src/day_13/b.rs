@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Debug, Hash)]
+#[derive(Debug, Copy, Clone, Hash)]
 enum Pix {
     Roc,
     Ash,
@@ -21,7 +21,7 @@ impl TryFrom<char> for Pix {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Pattern {
     pix: Vec<Vec<Pix>>,
 }
@@ -85,13 +85,30 @@ impl Pattern {
         });
         hashers.iter().map(|s| s.finish()).collect::<Vec<_>>()
     }
+
+    fn swap(&mut self, irow: usize, icol: usize) {
+        let col = &mut self.pix[irow][icol];
+        *col = match *col {
+            Pix::Ash => Pix::Roc,
+            Pix::Roc => Pix::Ash,
+        };
+    }
+
     fn summarize(&self) -> usize {
-        if let Some(row) = Pattern::find_mirror(&self.hash_rows()) {
-            return row * 100;
-        };
-        if let Some(col) = Pattern::find_mirror(&self.hash_cols()) {
-            return col;
-        };
+        for (irow, row) in self.pix.iter().enumerate() {
+            for (icol, _col) in row.iter().enumerate() {
+                let c = &mut self.clone();
+                c.swap(irow, icol);
+                if let Some(row) = Pattern::find_mirror(&c.hash_rows()) {
+                    println!("irow {} icol {} row {}", irow, icol, row);
+                    // return row * 100;
+                };
+                if let Some(col) = Pattern::find_mirror(&c.hash_cols()) {
+                    println!("irow {} icol {} col {}", irow, icol, col);
+                    // return col;
+                };
+            }
+        }
         panic!()
     }
 }
@@ -134,6 +151,6 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 405);
+        assert_eq!(super::run(input), 400);
     }
 }
