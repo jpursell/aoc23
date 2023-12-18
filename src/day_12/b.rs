@@ -296,6 +296,18 @@ mod tests {
     }
 
     #[test]
+    fn test_trivial_11() {
+        // TODO debug this
+        assert_eq!(
+            "#.. 1"
+                .parse::<SpringRecord>()
+                .unwrap()
+                .count_solutions(),
+            1
+        );
+    }
+
+    #[test]
     fn test_a_line_1() {
         assert_eq!(
             "???.### 1,1,3"
