@@ -1,4 +1,4 @@
-pub fn run(_input: &str) -> u64 {
+pub fn run(_input: &str) -> usize {
     0
 }
 
