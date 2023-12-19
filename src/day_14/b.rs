@@ -122,6 +122,14 @@ impl RockField {
             }
         }
     }
+
+    fn roll_cycle(&mut self) {
+        self.roll(Direction::N);
+        self.roll(Direction::W);
+        self.roll(Direction::S);
+        self.roll(Direction::E);
+    }
+
     fn count_rocks(&self) -> usize {
         self.rocks
             .indexed_iter()
@@ -139,20 +147,28 @@ impl RockField {
 }
 pub fn run(input: &str) -> usize {
     let mut field = input.parse::<RockField>().unwrap();
-    let directions = vec![Direction::N, Direction::W, Direction::S, Direction::E];
-    // let ncycles = 1_000_000_000;
-    for cycle in 0..100 {
-        for direction in &directions {
-            field.roll(*direction);
-        }
-        let n = field.count_rocks();
-        if n == 64 {
-            println!("{} {} <=====", cycle, field.count_rocks());
-        } else {
-            println!("{} {}", cycle, field.count_rocks());
-        }
-    }
-    field.count_rocks()
+    let data = (0..300)
+        .map(|_| {
+            field.roll_cycle();
+            field.count_rocks()
+        })
+        .collect::<Vec<_>>();
+    let last = *data.last().unwrap();
+    let pos = data
+        .iter()
+        .enumerate()
+        .filter(|(_, x)| **x == last)
+        .map(|(i, _)| i)
+        .collect::<Vec<_>>();
+    let pdiff = pos.windows(2).map(|x| x[1] - x[0]).collect::<Vec<_>>();
+    pos.iter()
+        .zip(pdiff.iter())
+        .for_each(|(p, d)| println!("{} {}", p, d));
+    assert!(pdiff.len() > 1);
+    assert!(pdiff.iter().all(|d| *d == pdiff[0]));
+
+    let ncycles = 1_000_000_000;
+    data[pos[0] + ((ncycles - 1 - pos[0]) % pdiff[0])]
 }
 
 #[cfg(test)]
