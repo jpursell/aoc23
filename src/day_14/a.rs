@@ -37,9 +37,9 @@ impl FromStr for RockField {
 #[derive(Debug, PartialEq, Eq)]
 enum Direction {
     N,
-    E,
-    S,
-    W,
+    // E,
+    // S,
+    // W,
 }
 impl RockField {
     fn roll(&mut self, direction: Direction) -> bool {
