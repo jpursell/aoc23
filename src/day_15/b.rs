@@ -1,4 +1,7 @@
-use std::{collections::LinkedList, str::FromStr};
+use std::{
+    collections::{HashMap, LinkedList},
+    str::FromStr,
+};
 
 fn hash_str(s: &str) -> usize {
     let mut val = 0;
@@ -42,6 +45,7 @@ impl FromStr for Instruction {
         }
     }
 }
+#[derive(Default)]
 struct Box {
     slots: Vec<Lens>,
 }
@@ -64,19 +68,53 @@ impl Box {
             .map(|(i, x)| i)
             .collect::<Vec<_>>();
         match matching.len() {
-            0 => todo!(),
-            1 => todo!(),
+            0 => {
+                self.slots.push(lens);
+            }
+            1 => {
+                self.slots[matching[0]] = lens;
+            }
             _ => panic!(),
         }
     }
 }
 
+#[derive(Default)]
 struct Boxes {
     boxes: HashMap<usize, Box>,
 }
 
+impl Boxes {
+    fn focusing_power(&self) -> usize {
+        todo!()
+    }
+    fn execute(&mut self, instruction: Instruction) {
+        let hash = match &instruction {
+            Instruction::Add(lens) => hash_str(&lens.label),
+            Instruction::Remove(label) => hash_str(&label),
+        };
+        if !self.boxes.contains_key(&hash) {
+            self.boxes.insert(hash, Box::default());
+        }
+        let b = self.boxes.get_mut(&hash).unwrap();
+        match instruction {
+            Instruction::Add(lens) => {
+                b.add(lens);
+            }
+            Instruction::Remove(label) => {
+                b.remove(&label);
+            }
+        }
+    }
+}
+
 pub fn run(input: &str) -> usize {
-    input.split(",").map(|s| hash_str(s)).sum()
+    let mut boxes = Boxes::default();
+    input
+        .split(",")
+        .map(|s| s.parse::<Instruction>().unwrap())
+        .for_each(|x| boxes.execute(x));
+    boxes.focusing_power()
 }
 
 #[cfg(test)]
