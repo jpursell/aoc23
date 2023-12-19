@@ -1,3 +1,4 @@
+
 fn hash_str(s: &str) -> usize {
     let mut val = 0;
     s.chars().for_each(|c| {
@@ -6,6 +7,19 @@ fn hash_str(s: &str) -> usize {
         val %= 256;
     });
     val
+}
+
+struct Instruction {
+    box: usize,
+    lens_power: Option<usize>,
+    operator: Operator
+}
+struct Box {
+    slots: Vec<Instruction>,
+}
+
+struct Boxes {
+    boxes: HashMap<usize, Box>,
 }
 
 pub fn run(input: &str) -> usize {
