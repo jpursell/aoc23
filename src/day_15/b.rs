@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, LinkedList},
-    str::FromStr,
-};
+use std::{collections::HashMap, str::FromStr};
 
 fn hash_str(s: &str) -> usize {
     let mut val = 0;
@@ -13,10 +10,12 @@ fn hash_str(s: &str) -> usize {
     val
 }
 
+#[derive(Debug, Clone)]
 struct Lens {
     label: String,
     lens_power: usize,
 }
+#[derive(Debug)]
 enum Instruction {
     Add(Lens),
     Remove(String),
@@ -29,7 +28,15 @@ impl FromStr for Instruction {
         if s.len() < 3 {
             return Err("Too few characters");
         }
-        match s.chars().nth(2).unwrap() {
+        let op_index = s
+            .chars()
+            .enumerate()
+            .filter(|(_, c)| *c == '-' || *c == '=')
+            .map(|(i, _)| i)
+            .collect::<Vec<_>>();
+        assert_eq!(op_index.len(), 1);
+        let op_index = op_index[0];
+        match s.chars().nth(op_index).unwrap() {
             '=' => {
                 let (label, lens_power) = s.split_once("=").unwrap();
                 Ok(Instruction::Add(Lens {
@@ -38,34 +45,39 @@ impl FromStr for Instruction {
                 }))
             }
             '-' => {
-                let label = s[0..2].to_string();
+                let label = s[0..op_index].to_string();
                 Ok(Instruction::Remove(label))
             }
             _ => panic!(),
         }
     }
 }
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Box {
     slots: Vec<Lens>,
 }
 
 impl Box {
     fn remove(&mut self, label: &str) {
-        self.slots = self
+        let to_remove = self
             .slots
             .iter()
-            .filter(|x| x.label != label)
-            .map(|x| *x)
+            .enumerate()
+            .filter(|(_, x)| x.label == label)
+            .map(|(i, _)| i)
             .collect::<Vec<_>>();
+        assert!(to_remove.len() <= 1);
+        to_remove.iter().for_each(|i| {
+            self.slots.remove(*i);
+        });
     }
     fn add(&mut self, lens: Lens) {
         let matching = self
             .slots
             .iter()
             .enumerate()
-            .filter(|(i, x)| x.label == lens.label)
-            .map(|(i, x)| i)
+            .filter(|(_, x)| x.label == lens.label)
+            .map(|(i, _)| i)
             .collect::<Vec<_>>();
         match matching.len() {
             0 => {
@@ -77,16 +89,26 @@ impl Box {
             _ => panic!(),
         }
     }
+    fn focusing_power(&self) -> usize {
+        self.slots
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (i + 1) * x.lens_power)
+            .sum()
+    }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Boxes {
     boxes: HashMap<usize, Box>,
 }
 
 impl Boxes {
     fn focusing_power(&self) -> usize {
-        todo!()
+        self.boxes
+            .iter()
+            .map(|(i, b)| (i + 1) * b.focusing_power())
+            .sum()
     }
     fn execute(&mut self, instruction: Instruction) {
         let hash = match &instruction {
@@ -113,7 +135,9 @@ pub fn run(input: &str) -> usize {
     input
         .split(",")
         .map(|s| s.parse::<Instruction>().unwrap())
-        .for_each(|x| boxes.execute(x));
+        .for_each(|x| {
+            boxes.execute(x);
+        });
     boxes.focusing_power()
 }
 
@@ -122,7 +146,7 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 1320);
+        assert_eq!(super::run(input), 145);
     }
     #[test]
     fn test_hash_1() {
