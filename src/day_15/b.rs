@@ -1,3 +1,4 @@
+use std::collections::LinkedList;
 
 fn hash_str(s: &str) -> usize {
     let mut val = 0;
@@ -9,13 +10,27 @@ fn hash_str(s: &str) -> usize {
     val
 }
 
-struct Instruction {
-    box: usize,
-    lens_power: Option<usize>,
-    operator: Operator
+struct Lens {
+    label: String,
+    lens_power: usize,
+}
+enum Instruction {
+    Add(Lens),
+    Remove(String),
 }
 struct Box {
-    slots: Vec<Instruction>,
+    slots: Vec<Lens>,
+}
+
+impl Box {
+    fn remove(&mut self, label: &str) {
+        self.slots = self
+            .slots
+            .iter()
+            .filter(|x| x.label != label)
+            .collect::<Vec<_>>();
+    }
+    fn add(lens: Lens) {}
 }
 
 struct Boxes {
