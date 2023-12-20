@@ -16,10 +16,22 @@ impl Mirror {
             Mirror::N => {
                 return vec![direction.straight()];
             }
-            Mirror::V => todo!(),
-            Mirror::H => todo!(),
-            Mirror::S => todo!(),
-            Mirror::B => todo!(),
+            Mirror::V => match direction {
+                Direction::N | Direction::S => vec![direction.straight()],
+                Direction::E | Direction::W => vec![direction.left(), direction.right()],
+            },
+            Mirror::H => match direction {
+                Direction::E | Direction::W => vec![direction.straight()],
+                Direction::S | Direction::N => vec![direction.left(), direction.right()],
+            },
+            Mirror::S => match direction {
+                Direction::N | Direction::S => vec![direction.right()],
+                Direction::E | Direction::W => vec![direction.left()],
+            },
+            Mirror::B => match direction {
+                Direction::N | Direction::S => vec![direction.left()],
+                Direction::E | Direction::W => vec![direction.right()],
+            },
         }
     }
 }
@@ -54,10 +66,62 @@ impl Direction {
     }
 }
 
+impl From<Direction> for usize {
+    fn from(value: Direction) -> Self {
+        match value {
+            Direction::N => 0,
+            Direction::E => 1,
+            Direction::S => 2,
+            Direction::W => 3,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 struct Position {
     row: usize,
     col: usize,
+}
+impl Position {
+    fn new(row: usize, col: usize) -> Self {
+        Position { row, col }
+    }
+    fn move_towards(&self, direction: &Direction, layout: &Layout) -> Option<Self> {
+        let (nrows, ncols) = {
+            let shape = layout.mirrors.shape();
+            (shape[0], shape[1])
+        };
+        match direction {
+            Direction::N => {
+                if self.row == 0 {
+                    None
+                } else {
+                    Some(Position::new(self.row - 1, self.col))
+                }
+            }
+            Direction::E => {
+                if self.col == ncols - 1 {
+                    None
+                } else {
+                    Some(Position::new(self.row, self.col + 1))
+                }
+            }
+            Direction::S => {
+                if self.row == nrows - 1 {
+                    None
+                } else {
+                    Some(Position::new(self.row + 1, self.col))
+                }
+            }
+            Direction::W => {
+                if self.col == 0 {
+                    None
+                } else {
+                    Some(Position::new(self.row, self.col - 1))
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -80,12 +144,25 @@ impl Light {
     fn col(&self) -> &usize {
         return &self.position.col;
     }
+    fn move_towards(&self, direction: &Direction, layout: &Layout) -> Option<Self> {
+        if let Some(new_position) = self.position.move_towards(direction, layout) {
+            Some(Light {
+                position: new_position,
+                direction: *direction,
+            })
+        } else {
+            None
+        }
+    }
     /// Return a vector of resulting light
-    fn propagate(&self, mirror: &Mirror) -> Vec<Self> {
+    fn propagate(&self, mirror: &Mirror, layout: &Layout) -> Vec<Self> {
         let motions = mirror.propagate(&self.direction);
-        // break out into a mirror.propagate that returns a vector of movements
-        // use/create position.move(direction) -> position
-        todo!()
+        motions
+            .iter()
+            .map(|m| self.move_towards(m, layout))
+            .filter(|x| x.is_some())
+            .map(|x| x.unwrap())
+            .collect::<Vec<_>>()
     }
 }
 
@@ -145,14 +222,25 @@ impl Layout {
     fn propagate(&mut self) {
         let mut new_light = vec![Light::new(0, 0, Direction::E)];
         while let Some(light) = new_light.pop() {
-            let p = light.propagate(&self.mirrors[[*light.row(), *light.col()]]);
-            todo!()
+            for n in light.propagate(&self.mirrors[[*light.row(), *light.col()]], self) {
+                if !self.contains(&n) {
+                    self.insert(&n);
+                    new_light.push(n);
+                }
+            }
         }
+    }
+    fn contains(&self, light: &Light) -> bool {
+        todo!()
+    }
+    fn insert(&self, light: &Light) {
+        todo!()
     }
 }
 
 pub fn run(input: &str) -> usize {
-    let layout = input.parse::<Layout>().unwrap();
+    let mut layout = input.parse::<Layout>().unwrap();
+    layout.propagate();
     0
 }
 
