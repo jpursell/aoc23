@@ -1,7 +1,7 @@
+use ndarray::Array2;
 use std::str::FromStr;
 
-use ndarray::Array2;
-
+#[derive(Clone, Copy)]
 enum Mirror {
     N,
     V,
@@ -19,20 +19,35 @@ impl TryFrom<char> for Mirror {
             '-' => Ok(Mirror::H),
             '/' => Ok(Mirror::S),
             '\\' => Ok(Mirror::B),
-            _ => Err("Invalid char")
+            _ => Err("Invalid char"),
         }
     }
 }
 struct Layout {
     mirrors: Array2<Mirror>,
 }
+
 impl FromStr for Layout {
-    type Err = &'static;
+    type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mirrors = s.lines().map()
+        let mirrors = s
+            .lines()
+            .map(|line| {
+                line.chars()
+                    .map(|c| Mirror::try_from(c).unwrap())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let nrows = mirrors.len();
+        let ncols = mirrors[0].len();
+        let mirrors = mirrors.concat();
+        let mirrors = Array2::from_shape_vec((nrows, ncols), mirrors).unwrap();
+        Ok(Layout { mirrors })
     }
 }
-pub fn run(_input: &str) -> usize {
+
+pub fn run(input: &str) -> usize {
+    let layout = input.parse::<Layout>().unwrap();
     0
 }
 
