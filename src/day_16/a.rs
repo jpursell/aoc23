@@ -10,12 +10,48 @@ enum Mirror {
     B,
 }
 
+impl Mirror {
+    fn propagate(&self, direction: &Direction) -> Vec<Direction> {
+        match self {
+            Mirror::N => {
+                return vec![direction.straight()];
+            }
+            Mirror::V => todo!(),
+            Mirror::H => todo!(),
+            Mirror::S => todo!(),
+            Mirror::B => todo!(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 enum Direction {
     N,
     E,
     S,
     W,
+}
+
+impl Direction {
+    fn straight(&self) -> Direction {
+        return *self;
+    }
+    fn left(&self) -> Direction {
+        match self {
+            Direction::N => Direction::W,
+            Direction::E => Direction::N,
+            Direction::S => Direction::E,
+            Direction::W => Direction::S,
+        }
+    }
+    fn right(&self) -> Direction {
+        match self {
+            Direction::N => Direction::E,
+            Direction::E => Direction::S,
+            Direction::S => Direction::W,
+            Direction::W => Direction::N,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -45,7 +81,8 @@ impl Light {
         return &self.position.col;
     }
     /// Return a vector of resulting light
-    fn propagate(&self, &mirror: Mirror) -> Vec<Self> {
+    fn propagate(&self, mirror: &Mirror) -> Vec<Self> {
+        let motions = mirror.propagate(self.direction);
         // break out into a mirror.propagate that returns a vector of movements
         // use/create position.move(direction) -> position
         todo!()
