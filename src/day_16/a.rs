@@ -10,7 +10,7 @@ enum Mirror {
     B,
 }
 
-#[derive(Clone, Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 enum Direction {
     N,
     E,
@@ -18,7 +18,7 @@ enum Direction {
     W,
 }
 
-#[derive(Clone, Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 struct Position {
     row: usize,
     col: usize,
@@ -32,11 +32,24 @@ struct Light {
 }
 
 impl Light {
-    fn new(row:usize,col:usize,direction:Direction)->Light{
-        Light{direction,position:Position{row,col}}
+    fn new(row: usize, col: usize, direction: Direction) -> Light {
+        Light {
+            direction,
+            position: Position { row, col },
+        }
     }
-    fn row(&self) -> &usize {return &self.position.row;}
-    fn col(&self) -> &usize {return &self.position.col;}
+    fn row(&self) -> &usize {
+        return &self.position.row;
+    }
+    fn col(&self) -> &usize {
+        return &self.position.col;
+    }
+    /// Return a vector of resulting light
+    fn propagate(&self, &mirror: Mirror) -> Vec<Self> {
+        // break out into a mirror.propagate that returns a vector of movements
+        // use/create position.move(direction) -> position
+        todo!()
+    }
 }
 
 impl TryFrom<char> for Mirror {
@@ -80,13 +93,13 @@ impl FromStr for Layout {
 
 impl From<Array2<Mirror>> for Layout {
     fn from(mirrors: Array2<Mirror>) -> Self {
-        let (nrows, ncols)= {
+        let (nrows, ncols) = {
             let shape = mirrors.shape();
             (shape[0], shape[1])
         };
         let ndir = 4;
-        let light = Array3::from_elem((nrows, ncols,ndir), false);
-        Layout{mirrors, light}
+        let light = Array3::from_elem((nrows, ncols, ndir), false);
+        Layout { mirrors, light }
     }
 }
 
