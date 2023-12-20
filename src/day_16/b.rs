@@ -180,7 +180,7 @@ impl TryFrom<char> for Mirror {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Layout {
     mirrors: Array2<Mirror>,
     light: Array3<bool>,
@@ -219,7 +219,7 @@ impl From<Array2<Mirror>> for Layout {
 
 impl Layout {
     /// Propagate light according to rules until complete
-    fn propagate(&mut self, start:Light) {
+    fn propagate(&mut self, start: Light) {
         self.insert(&start);
         let mut new_light = vec![start];
         while let Some(light) = new_light.pop() {
@@ -242,7 +242,7 @@ impl Layout {
         for irow in 0..self.light.shape()[0] {
             for icol in 0..self.light.shape()[1] {
                 for iband in 0..self.light.shape()[2] {
-                    if self.light[[irow,icol,iband]] {
+                    if self.light[[irow, icol, iband]] {
                         count += 1;
                         break;
                     }
@@ -260,7 +260,28 @@ impl Layout {
         // top
         for icol in 0..ncols {
             let light = Light::new(0, icol, Direction::S);
-            let mut layout = self.clone();
+            let mut layout = (*self).clone();
+            layout.propagate(light);
+            max_val = max_val.max(layout.energy());
+        }
+        // bottom
+        for icol in 0..ncols {
+            let light = Light::new(nrows - 1, icol, Direction::N);
+            let mut layout = (*self).clone();
+            layout.propagate(light);
+            max_val = max_val.max(layout.energy());
+        }
+        // left
+        for irow in 0..nrows {
+            let light = Light::new(irow, 0, Direction::E);
+            let mut layout = (*self).clone();
+            layout.propagate(light);
+            max_val = max_val.max(layout.energy());
+        }
+        // right
+        for irow in 0..nrows {
+            let light = Light::new(irow, ncols - 1, Direction::W);
+            let mut layout = (*self).clone();
             layout.propagate(light);
             max_val = max_val.max(layout.energy());
         }
@@ -269,7 +290,7 @@ impl Layout {
 }
 
 pub fn run(input: &str) -> usize {
-    let mut layout = input.parse::<Layout>().unwrap();
+    let layout = input.parse::<Layout>().unwrap();
     layout.max_energy()
 }
 
