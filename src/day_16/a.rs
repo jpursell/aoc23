@@ -1,5 +1,5 @@
 use ndarray::{Array2, Array3};
-use std::{collections::BTreeSet, str::FromStr};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy)]
 enum Mirror {
@@ -82,7 +82,7 @@ impl Light {
     }
     /// Return a vector of resulting light
     fn propagate(&self, mirror: &Mirror) -> Vec<Self> {
-        let motions = mirror.propagate(self.direction);
+        let motions = mirror.propagate(&self.direction);
         // break out into a mirror.propagate that returns a vector of movements
         // use/create position.move(direction) -> position
         todo!()
@@ -145,7 +145,7 @@ impl Layout {
     fn propagate(&mut self) {
         let mut new_light = vec![Light::new(0, 0, Direction::E)];
         while let Some(light) = new_light.pop() {
-            let p = light.propagate(self.mirrors[[light.row(), light.col()]]);
+            let p = light.propagate(&self.mirrors[[*light.row(), *light.col()]]);
             todo!()
         }
     }
@@ -153,8 +153,6 @@ impl Layout {
 
 pub fn run(input: &str) -> usize {
     let layout = input.parse::<Layout>().unwrap();
-    dbg!(&layout.new_light);
-    dbg!(&layout.light);
     0
 }
 
