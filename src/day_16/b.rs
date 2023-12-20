@@ -219,8 +219,7 @@ impl From<Array2<Mirror>> for Layout {
 
 impl Layout {
     /// Propagate light according to rules until complete
-    fn propagate(&mut self) {
-        let start = Light::new(0, 0, Direction::E);
+    fn propagate(&mut self, start:Light) {
         self.insert(&start);
         let mut new_light = vec![start];
         while let Some(light) = new_light.pop() {
@@ -252,12 +251,26 @@ impl Layout {
         }
         count
     }
+    fn max_energy(&self) -> usize {
+        let (nrows, ncols) = {
+            let shape = self.mirrors.shape();
+            (shape[0], shape[1])
+        };
+        let mut max_val = 0;
+        // top
+        for icol in 0..ncols {
+            let light = Light::new(0, icol, Direction::S);
+            let mut layout = self.clone();
+            layout.propagate(light);
+            max_val = max_val.max(layout.energy());
+        }
+        max_val
+    }
 }
 
 pub fn run(input: &str) -> usize {
     let mut layout = input.parse::<Layout>().unwrap();
-    layout.propagate();
-    layout.energy()
+    layout.max_energy()
 }
 
 #[cfg(test)]
@@ -265,6 +278,6 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 46);
+        assert_eq!(super::run(input), 51);
     }
 }
