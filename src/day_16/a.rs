@@ -220,7 +220,9 @@ impl From<Array2<Mirror>> for Layout {
 impl Layout {
     /// Propagate light according to rules until complete
     fn propagate(&mut self) {
-        let mut new_light = vec![Light::new(0, 0, Direction::E)];
+        let start = Light::new(0, 0, Direction::E);
+        self.insert(&start);
+        let mut new_light = vec![start];
         while let Some(light) = new_light.pop() {
             for n in light.propagate(&self.mirrors[[*light.row(), *light.col()]], self) {
                 if !self.contains(&n) {
@@ -231,17 +233,31 @@ impl Layout {
         }
     }
     fn contains(&self, light: &Light) -> bool {
-        todo!()
+        self.light[[*light.row(), *light.col(), light.direction.into()]]
     }
-    fn insert(&self, light: &Light) {
-        todo!()
+    fn insert(&mut self, light: &Light) {
+        self.light[[*light.row(), *light.col(), light.direction.into()]] = true;
+    }
+    fn energy(&self) -> usize {
+        let mut count = 0;
+        for irow in 0..self.light.shape()[0] {
+            for icol in 0..self.light.shape()[1] {
+                for iband in 0..self.light.shape()[2] {
+                    if self.light[[irow,icol,iband]] {
+                        count += 1;
+                        break;
+                    }
+                }
+            }
+        }
+        count
     }
 }
 
 pub fn run(input: &str) -> usize {
     let mut layout = input.parse::<Layout>().unwrap();
     layout.propagate();
-    0
+    layout.energy()
 }
 
 #[cfg(test)]
