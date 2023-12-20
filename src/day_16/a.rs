@@ -28,7 +28,15 @@ struct Position {
 struct Light {
     /// Direction light was moving when it entered position
     direction: Direction,
-    postion: Position,
+    position: Position,
+}
+
+impl Light {
+    fn new(row:usize,col:usize,direction:Direction)->Light{
+        Light{direction,position:Position{row,col}}
+    }
+    fn row(&self) -> &usize {return &self.position.row;}
+    fn col(&self) -> &usize {return &self.position.col;}
 }
 
 impl TryFrom<char> for Mirror {
@@ -86,12 +94,9 @@ impl Layout {
     /// Propagate light according to rules until complete
     fn propagate(&mut self) {
         let mut new_light = vec![Light::new(0, 0, Direction::E)];
-        while new_light.len() > 0 {
+        while let Some(light) = new_light.pop() {
+            let p = light.propagate(self.mirrors[[light.row(), light.col()]]);
             todo!()
-            for light in new_light.pop_first().unwrap() {
-                let p = light.propagate(self.mirrors[light.position.row, light.position.col]);
-                todo!()
-            }
         }
     }
 }
