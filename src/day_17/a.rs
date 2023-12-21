@@ -4,14 +4,43 @@ use ndarray::Array2;
 
 #[derive(Default, Clone, Copy)]
 struct Position {
-    row: u8,
-    col: u8,
+    index: [usize; 2],
 }
+
+impl Position {
+    fn new(row: usize, col: usize) -> Position {
+        Position { index: [row, col] }
+    }
+    fn row(&self) -> &usize {
+        return &self.index[0];
+    }
+    fn col(&self) -> &usize {
+        return &self.index[1];
+    }
+    fn on_edge(&self, direction: &Direction, loss_map: &LossMap) -> bool {
+        match direction {
+            Direction::N => *self.row() == 0,
+            Direction::S => *self.row() == loss_map.nrows - 1,
+            Direction::E => *self.col() == loss_map.ncols - 1,
+            Direction::W => *self.col() == 0,
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Copy, Default)]
+enum Direction {
+    #[default]
+    N,
+    E,
+    S,
+    W,
+}
+
 #[derive(Clone, Copy, Default)]
 struct Info {
     last_position: Position,
-    last_straight: u8,
-    loss: u16,
+    last_direction: Direction,
+    loss: usize,
 }
 struct Solver {
     visited: Array2<bool>,
@@ -63,13 +92,38 @@ impl FromStr for LossMap {
 }
 
 impl Solver {
-    fn visit(&mut self, row:usize,col:usize) {
-        self.visited[[row,col]] = true;
+    fn possible_directions(
+        &self,
+        position: &Position,
+        loss_map: &LossMap,
+    ) -> [Option<Direction>; 3] {
+        let mut out = [None, None, None];
+        let mut n = 0;
+        let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
+
+        for direction in directions {
+            if !position.on_edge(&direction, loss_map)
+                && self.table[position.index].last_direction != direction
+            {
+                out[n] = Some(Direction::N);
+                n += 1;
+            }
+        }
+
+        out
+    }
+    fn visit(&mut self, position: &Position, loss_map: &LossMap) {
+        self.visited[position.index] = true;
+        for direction in self.possible_directions(position, loss_map) {
+            if direction.is_none() {
+                continue;
+            }
+            let direction = direction.unwrap();
+            todo!();
+        }
     }
     fn solve(&mut self, loss_map: &LossMap) -> usize {
-        todo!()
-        self.table[[0, 0]].
-        self.visit(0, 0);
+        self.visit(&Position::new(0, 0));
         todo!()
     }
 }
