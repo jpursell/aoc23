@@ -25,12 +25,12 @@ impl From<LossMap> for Solver {
         let (nrows, ncols) = (loss_map.nrows, loss_map.ncols);
         let visited = Array2::<bool>::from_elem((nrows, ncols), false);
         let table = Array2::<Info>::from_elem((nrows, ncols), Info::default());
-        Ok(Solver {
+        Solver {
             visited,
             table,
             nrows,
             ncols,
-        })
+        }
     }
 }
 
@@ -39,6 +39,7 @@ struct LossMap {
     nrows: usize,
     ncols: usize,
 }
+
 impl FromStr for LossMap {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -55,13 +56,22 @@ impl FromStr for LossMap {
         let data = Array2::from_shape_vec((nrows, ncols), data.concat()).unwrap();
         Ok(LossMap {
             data,
-            nrows: nrows as u16,
-            ncols: ncols as u16,
+            nrows: nrows,
+            ncols: ncols,
         })
     }
 }
-pub fn run(_input: &str) -> usize {
-    0
+
+impl Solver {
+    fn solve(&mut self) -> usize {
+        todo!()
+    }
+}
+
+pub fn run(input: &str) -> usize {
+    let loss_map = input.parse::<LossMap>().unwrap();
+    let mut solver = Solver::from(loss_map);
+    solver.solve()
 }
 
 #[cfg(test)]
