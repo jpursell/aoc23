@@ -20,8 +20,8 @@ struct Solver {
     ncols: usize,
 }
 
-impl From<LossMap> for Solver {
-    fn from(loss_map: LossMap) -> Self {
+impl From<&LossMap> for Solver {
+    fn from(loss_map: &LossMap) -> Self {
         let (nrows, ncols) = (loss_map.nrows, loss_map.ncols);
         let visited = Array2::<bool>::from_elem((nrows, ncols), false);
         let table = Array2::<Info>::from_elem((nrows, ncols), Info::default());
@@ -63,15 +63,21 @@ impl FromStr for LossMap {
 }
 
 impl Solver {
-    fn solve(&mut self) -> usize {
+    fn visit(&mut self, row:usize,col:usize) {
+        self.visited[[row,col]] = true;
+    }
+    fn solve(&mut self, loss_map: &LossMap) -> usize {
+        todo!()
+        self.table[[0, 0]].
+        self.visit(0, 0);
         todo!()
     }
 }
 
 pub fn run(input: &str) -> usize {
     let loss_map = input.parse::<LossMap>().unwrap();
-    let mut solver = Solver::from(loss_map);
-    solver.solve()
+    let mut solver = Solver::from(&loss_map);
+    solver.solve(&loss_map)
 }
 
 #[cfg(test)]
