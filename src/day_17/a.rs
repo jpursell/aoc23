@@ -2,10 +2,12 @@ use std::str::FromStr;
 
 use ndarray::Array2;
 
+#[derive(Default)]
 struct Position {
     row: u8,
     col: u8,
 }
+#[derive(Default)]
 struct Info {
     last_position: Position,
     last_straight: u8,
@@ -14,20 +16,23 @@ struct Info {
 struct Solver {
     visited: Array2<bool>,
     table: Array2<Info>,
-    nrows: u16,
-    ncols: u16,
+    nrows: usize,
+    ncols: usize,
 }
+
 impl From<LossMap> for Solver {
     fn from(loss_map: LossMap) -> Self {
         let (nrows, ncols) = (loss_map.nrows, loss_map.ncols);
-        let visited = Array2::<bool>::from_elem((nrows, ncols), false);
-        todo!()
+        let visited = Array2::<bool>::from_elem((nrows , ncols ), false);
+        let table = Array2::<Info>::from_elem((nrows , ncols ), Info::default());
+        Ok(Solver{visited, table, nrows, ncols})
     }
 }
+
 struct LossMap {
     data: Array2<u8>,
-    nrows: u16,
-    ncols: u16,
+    nrows: usize,
+    ncols: usize,
 }
 impl FromStr for LossMap {
     type Err = &'static str;
