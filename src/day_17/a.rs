@@ -194,24 +194,32 @@ impl Solver {
         }
     }
 
-    // fn print_trace(&self, position: &Position, loss_map: &LossMap) {
-    //     let mut trace = loss_map.data.map(|x| format!(" {}", x));
-    //     let mut current = position;
-    //     loop {
-    //         trace[current.index] = format!(".{}", loss_map.data[current.index]);
-    //         let entry = &self.table[current.index];
-    //         if entry.loss == 0 {
-    //             break;
-    //         }
-    //         current = &entry.last_position;
-    //     }
-    //     for row in 0..self.nrows {
-    //         for col in 0..self.ncols {
-    //             print!("{}", trace[[row, col]]);
-    //         }
-    //         println!("");
-    //     }
-    // }
+    fn print_trace(&self, position: &Position, loss_map: &LossMap) {
+        let mut trace = loss_map.data.map(|x| format!(" {}", x));
+        let mut current = position;
+        let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
+        let mut direction = &Direction::W;
+        loop {
+            trace[current.index] = format!(".{}", loss_map.data[current.index]);
+            let entry = directions
+                .iter()
+                .filter(|d| **d != *direction)
+                .map(|d| &self.table[current.dindex(d)])
+                .min_by_key(|e| e.loss)
+                .unwrap();
+            if entry.loss == 0 {
+                break;
+            }
+            current = &entry.last_position;
+            direction = &entry.last_direction;
+        }
+        for row in 0..self.nrows {
+            for col in 0..self.ncols {
+                print!("{}", trace[[row, col]]);
+            }
+            println!("");
+        }
+    }
 
     /// Solve and return lowest heat loss
     fn solve(&mut self, loss_map: &LossMap) -> usize {
@@ -220,7 +228,7 @@ impl Solver {
             self.visit(&position, loss_map);
         }
         let end = Position::new(self.nrows - 1, self.ncols - 1);
-        // self.print_trace(&end, loss_map);
+        self.print_trace(&end, loss_map);
         let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
         directions
             .iter()
