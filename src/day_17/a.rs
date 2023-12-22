@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use ndarray::Array2;
+use ndarray::{Array2, Array3};
 
 #[derive(Debug, Default, Clone, Copy)]
 struct Position {
@@ -16,6 +16,9 @@ impl Position {
     }
     fn col(&self) -> &usize {
         return &self.index[1];
+    }
+    fn dindex(&self, direction: &Direction) -> [usize; 3] {
+        [*self.row(), *self.col(), usize::from(*direction)]
     }
     fn on_edge(&self, direction: &Direction, loss_map: &LossMap, distance: &usize) -> bool {
         match direction {
@@ -47,6 +50,17 @@ enum Direction {
     W,
 }
 
+impl From<Direction> for usize {
+    fn from(value: Direction) -> Self {
+        match value {
+            Direction::N => 0,
+            Direction::E => 1,
+            Direction::S => 2,
+            Direction::W => 3,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 struct Info {
     last_position: Position,
@@ -64,7 +78,7 @@ impl Default for Info {
 }
 struct Solver {
     visited: Array2<bool>,
-    table: Array2<Info>,
+    table: Array3<Info>,
     nrows: usize,
     ncols: usize,
 }
@@ -73,8 +87,10 @@ impl From<&LossMap> for Solver {
     fn from(loss_map: &LossMap) -> Self {
         let (nrows, ncols) = (loss_map.nrows, loss_map.ncols);
         let visited = Array2::<bool>::from_elem((nrows, ncols), false);
-        let mut table = Array2::<Info>::from_elem((nrows, ncols), Info::default());
-        table[[0, 0]].loss = 0;
+        let mut table = Array3::<Info>::from_elem((nrows, ncols, 4), Info::default());
+        for direction in [Direction::S, Direction::W] {
+            table[[0, 0, direction.into()]].loss = 0;
+        }
 
         Solver {
             visited,
@@ -122,18 +138,24 @@ impl Solver {
         loss_map: &LossMap,
     ) -> bool {
         !position.on_edge(&direction, loss_map, distance)
-            && self.table[position.index].last_direction != *direction
     }
     /// Visit node
     /// Node will become added to visited list
     /// All nodes connected will be updated in table
     fn visit(&mut self, position: &Position, loss_map: &LossMap) {
         self.visited[position.index] = true;
-        // todo refactor possible_directions to just check a single direction
-        // so I can rewrite this double loop with direction on the outside and
-        // distance on the inside so I can accumulate the heat loss
-        for direction in [Direction::N, Direction::E, Direction::S, Direction::W] {
-            let mut loss: usize = 0;
+        let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
+        for direction in directions {
+            let entry = directions
+                .iter()
+                .filter(|d| **d != direction)
+                .map(|d| self.table[[*position.row(), *position.col(), usize::from(*d)]])
+                .min_by_key(|e| e.loss)
+                .unwrap();
+            let mut loss: usize = entry.loss;
+            if loss == usize::MAX {
+                continue;
+            }
             for distance in 1..=3 {
                 if self.move_possible(position, &distance, &direction, loss_map) {
                     let new_position = position.move_by(&distance, &direction);
@@ -141,24 +163,70 @@ impl Solver {
                         continue;
                     }
                     loss += loss_map.data[new_position.index] as usize;
-                    let entry = self.table.get_mut(new_position.index).unwrap();
+                    let entry = self.table.get_mut(new_position.dindex(&direction)).unwrap();
                     if entry.loss > loss {
                         entry.loss = loss;
                         entry.last_direction = direction;
                         entry.last_position = *position;
-                        dbg!(&new_position);
-                        dbg!(&entry);
                     }
                 }
             }
         }
     }
 
+    fn find_next_node(&self) -> Option<Position> {
+        let mut found = false;
+        let mut position = Position::default();
+        let mut loss = usize::MAX;
+        self.table
+            .indexed_iter()
+            .for_each(|((row, col, _), entry)| {
+                if !self.visited[[row, col]] && entry.loss < loss {
+                    found = true;
+                    position = Position::new(row, col);
+                    loss = entry.loss
+                }
+            });
+        if found {
+            Some(position)
+        } else {
+            None
+        }
+    }
+
+    // fn print_trace(&self, position: &Position, loss_map: &LossMap) {
+    //     let mut trace = loss_map.data.map(|x| format!(" {}", x));
+    //     let mut current = position;
+    //     loop {
+    //         trace[current.index] = format!(".{}", loss_map.data[current.index]);
+    //         let entry = &self.table[current.index];
+    //         if entry.loss == 0 {
+    //             break;
+    //         }
+    //         current = &entry.last_position;
+    //     }
+    //     for row in 0..self.nrows {
+    //         for col in 0..self.ncols {
+    //             print!("{}", trace[[row, col]]);
+    //         }
+    //         println!("");
+    //     }
+    // }
+
     /// Solve and return lowest heat loss
     fn solve(&mut self, loss_map: &LossMap) -> usize {
         self.visit(&Position::new(0, 0), loss_map);
-        // todo: loop through unvisited nodes and visit them
-        todo!()
+        while let Some(position) = self.find_next_node() {
+            self.visit(&position, loss_map);
+        }
+        let end = Position::new(self.nrows - 1, self.ncols - 1);
+        // self.print_trace(&end, loss_map);
+        let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
+        directions
+            .iter()
+            .map(|d| self.table[end.dindex(d)].loss)
+            .min()
+            .unwrap()
     }
 }
 
@@ -176,3 +244,20 @@ mod tests {
         assert_eq!(super::run(input), 102);
     }
 }
+// 1 1 1 1 .
+// 2 . . 1 .
+// 1 . . 1 .
+// 1 1 1 x 1
+// . . . 9 .
+
+// x x x x .
+// . . . x x
+// . . . . x
+// . . . . x
+// . . . . x
+
+// x x x x .
+// . . . x .
+// . . . x x
+// . . . . x
+// . . . . x
