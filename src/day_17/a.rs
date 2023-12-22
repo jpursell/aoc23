@@ -195,12 +195,29 @@ impl Solver {
     }
 
     fn print_trace(&self, position: &Position, loss_map: &LossMap) {
-        let mut trace = loss_map.data.map(|x| format!(" {}", x));
+        let mut trace = Array2::from_elem((self.nrows * 2 + 1, self.ncols * 2 + 1), ' ');
+        loss_map.data.indexed_iter().for_each(|((r, c), x)| {
+            *trace.get_mut([r * 2 + 1, c * 2 + 1]).unwrap() =
+                format!("{}", x).chars().next().unwrap();
+        });
         let mut current = position;
         let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
         let mut direction = &Direction::W;
         loop {
-            trace[current.index] = format!(".{}", loss_map.data[current.index]);
+            match direction {
+                Direction::W => {
+                    trace[[*current.row() * 2 + 1, *current.col() * 2]] = '#';
+                }
+                Direction::N => {
+                    trace[[*current.row() * 2, *current.col() * 2 + 1]] = '#';
+                }
+                Direction::E => {
+                    trace[[*current.row() * 2 + 1, *current.col() * 2 + 2]] = '#';
+                }
+                Direction::S => {
+                    trace[[*current.row() * 2 + 2, *current.col() * 2 + 1]] = '#';
+                }
+            }
             let entry = directions
                 .iter()
                 .filter(|d| **d != *direction)
@@ -210,11 +227,22 @@ impl Solver {
             if entry.loss == 0 {
                 break;
             }
+            let row_diff = (*current.row()).abs_diff(*entry.last_position.row());
+            let col_diff = (*current.col()).abs_diff(*entry.last_position.col());
+            assert!(row_diff == 0 || col_diff == 0);
+            assert!(row_diff.max(col_diff) > 0);
+            assert!(row_diff.max(col_diff) <= 3);
             current = &entry.last_position;
             direction = &entry.last_direction;
+            // println!("{:?} {:?}", current, direction);
         }
-        for row in 0..self.nrows {
-            for col in 0..self.ncols {
+        for row in 0..(self.nrows * 2 + 1) {
+            if row % 2 == 1 {
+                print!("{:03} ", row / 2);
+            } else {
+                print!("    ");
+            }
+            for col in 0..(self.ncols * 2 + 1) {
                 print!("{}", trace[[row, col]]);
             }
             println!("");
