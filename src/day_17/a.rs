@@ -1,10 +1,16 @@
-use std::str::FromStr;
-
 use ndarray::{Array2, Array3};
+use std::fmt::Display;
+use std::str::FromStr;
 
 #[derive(Debug, Default, Clone, Copy)]
 struct Position {
     index: [usize; 2],
+}
+
+impl Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.row(), self.col())
+    }
 }
 
 impl Position {
@@ -23,8 +29,20 @@ impl Position {
     fn on_edge(&self, direction: &Direction, loss_map: &LossMap, distance: &usize) -> bool {
         match direction {
             Direction::N => *self.row() <= distance - 1,
-            Direction::S => *self.row() >= loss_map.nrows - distance,
-            Direction::E => *self.col() >= loss_map.ncols - distance,
+            Direction::S => {
+                if loss_map.nrows < *distance {
+                    true
+                } else {
+                    *self.row() >= loss_map.nrows - distance
+                }
+            }
+            Direction::E => {
+                if loss_map.ncols < *distance {
+                    true
+                } else {
+                    *self.col() >= loss_map.ncols - distance
+                }
+            }
             Direction::W => *self.col() <= distance - 1,
         }
     }
@@ -50,6 +68,17 @@ enum Direction {
     W,
 }
 
+impl Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Direction::N => write!(f, "N"),
+            Direction::E => write!(f, "E"),
+            Direction::S => write!(f, "S"),
+            Direction::W => write!(f, "W"),
+        }
+    }
+}
+
 impl From<Direction> for usize {
     fn from(value: Direction) -> Self {
         match value {
@@ -57,6 +86,19 @@ impl From<Direction> for usize {
             Direction::E => 1,
             Direction::S => 2,
             Direction::W => 3,
+        }
+    }
+}
+
+impl TryFrom<usize> for Direction {
+    type Error = &'static str;
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Direction::N),
+            1 => Ok(Direction::E),
+            2 => Ok(Direction::S),
+            3 => Ok(Direction::W),
+            _ => Err("Unexpected value"),
         }
     }
 }
@@ -168,6 +210,10 @@ impl Solver {
                         entry.loss = loss;
                         entry.last_direction = direction;
                         entry.last_position = *position;
+                        println!(
+                            "visit pos {} set new pos {} loss to {} moving in dir {}",
+                            position, new_position, loss, direction
+                        );
                     }
                 }
             }
@@ -278,6 +324,13 @@ mod tests {
     fn test1() {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input), 102);
+    }
+
+    #[test]
+    fn test2() {
+        let input = r#"11
+11"#;
+        assert_eq!(super::run(input), 2);
     }
 }
 // 1 1 1 1 .
