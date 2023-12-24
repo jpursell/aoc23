@@ -95,7 +95,11 @@ fn main() {
             day_16::run();
         }
         17 => {
-            day_17::run();
+            if debug {
+                day_17::a::random(6);
+            } else {
+                day_17::run();
+            }
         }
         _ => {
             panic!();

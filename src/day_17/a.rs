@@ -1,4 +1,5 @@
 use ndarray::{Array2, Array3};
+use rand::Rng;
 use std::collections::BTreeSet;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -174,6 +175,33 @@ struct LossMap {
     data: Array2<u8>,
     nrows: usize,
     ncols: usize,
+}
+
+impl Display for LossMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for irow in 0..self.nrows {
+            for icol in 0..self.ncols {
+                write!(f, "{}", self.data[[irow, icol]])?
+            }
+            write!(f, "\n")?
+        }
+        Ok(())
+    }
+}
+
+impl LossMap {
+    fn random(size: usize) -> LossMap {
+        let mut data = Array2::zeros((size, size));
+        let mut rng = rand::thread_rng();
+        data.iter_mut().for_each(|x| {
+            *x = rng.gen_range(1..10);
+        });
+        LossMap {
+            data,
+            nrows: size,
+            ncols: size,
+        }
+    }
 }
 
 impl FromStr for LossMap {
@@ -376,13 +404,13 @@ impl BruteSolver {
         let mut new_positions = Vec::new();
         for _ in 0..*distance {
             current = current.move_by(&1, direction);
-            self.loss += loss_map.data[current.index] as usize;
             if self.position_set.contains(&current) {
                 return Err(());
             }
             new_positions.push(current);
         }
         for new_position in new_positions {
+            self.loss += loss_map.data[new_position.index] as usize;
             self.position_vec.push(new_position);
             self.position_set.insert(new_position);
         }
@@ -461,8 +489,24 @@ pub fn run(input: &str) -> usize {
     fast_loss
 }
 
+pub fn random(size: usize) {
+    for _ in 0..100 {
+        let loss_map = LossMap::random(size);
+        let mut solver = Solver::from(&loss_map);
+        let last_loss = solver.solve(&loss_map);
+        let mut solver = BruteSolver::new();
+        let slow_loss = solver.solve(&loss_map);
+        if slow_loss != last_loss {
+            println!("found fail {}", loss_map);
+            break;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::{BruteSolver, LossMap, Solver};
+
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
@@ -530,6 +574,48 @@ mod tests {
 51115
 51555
 51111"#;
+        assert_eq!(super::run(input), 12);
+    }
+
+    #[test]
+    fn test6_a() {
+        // 000  6 9 3 6 2 3
+        //      #
+        // 001  7 7 6 7 5 7
+
+        // 002  4 3 5 3 5 7
+
+        // 003  1#2 6 8 2 9
+        //        #
+        // 004  4 1 7 4#2 6
+        //            #   #
+        // 005  6 2#3 1 5#9
+
+        // fast took 0.00289
+        // slow path:
+        //   (0, 0)
+        //   (1, 0)
+        //   (2, 0)
+        //   (3, 0)
+        //   (3, 1)
+        //   (4, 1)
+        //   (4, 2)
+        //   (5, 2)
+        //   (5, 3)
+        //   (5, 4)
+        //   (5, 5)
+        // slow took 50.311108
+        // thread 'day_17::a::tests::test6_a' panicked at src\day_17\a.rs:488:5:
+        // assertion `left == right` failed
+        //   left: 42
+        //  right: 40
+
+        let input = r#"693623
+776757
+435357
+126829
+417426
+623159"#;
         assert_eq!(super::run(input), 12);
     }
 

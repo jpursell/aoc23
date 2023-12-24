@@ -1,4 +1,4 @@
-mod a;
+pub mod a;
 mod b;
 
 pub fn run() {
