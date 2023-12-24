@@ -109,6 +109,17 @@ struct Info {
     last_direction: Direction,
     loss: usize,
 }
+
+impl Display for Info {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[ last_position: {} last_direction {} loss {} ]",
+            self.last_position, self.last_direction, self.loss
+        )
+    }
+}
+
 impl Default for Info {
     fn default() -> Self {
         Info {
@@ -207,6 +218,10 @@ impl Solver {
                     loss += loss_map.data[new_position.index] as usize;
                     let entry = self.table.get_mut(new_position.dindex(&direction)).unwrap();
                     if entry.loss > loss {
+                        // println!(
+                        //     "entry for new position {} and dir {} {} loss > {}",
+                        //     new_position, direction, entry, loss
+                        // );
                         entry.loss = loss;
                         entry.last_direction = direction;
                         entry.last_position = *position;
@@ -331,6 +346,78 @@ mod tests {
         let input = r#"11
 11"#;
         assert_eq!(super::run(input), 2);
+    }
+
+    #[test]
+    fn test3() {
+        let input = r#"111
+111
+111"#;
+        assert_eq!(super::run(input), 4);
+    }
+
+    #[test]
+    fn test4() {
+        let input = r#"1111
+1111
+1111
+1111"#;
+        assert_eq!(super::run(input), 6);
+    }
+
+    #[test]
+    fn test5() {
+        let input = r#"11111
+11111
+11111
+11111
+11111"#;
+        assert_eq!(super::run(input), 8);
+    }
+
+    #[test]
+    fn test5_b() {
+        let input = r#"11111
+11111
+11111
+11111
+11121"#;
+        assert_eq!(super::run(input), 8);
+    }
+
+    #[test]
+    fn test5_c() {
+        let input = r#"12111
+11111
+11111
+11111
+11121"#;
+        assert_eq!(super::run(input), 8);
+    }
+
+    #[test]
+    fn test5_d() {
+        let input = r#"11115
+55515
+51115
+51555
+51111"#;
+        assert_eq!(super::run(input), 12);
+    }
+
+    #[test]
+    fn test_10() {
+        let input = r#"1119999999
+9919999999
+9119999999
+9199111999
+9111191999
+1119991999
+1119111999
+1111199999
+1199111999
+1111111111"#;
+        assert_eq!(super::run(input), 20);
     }
 }
 // 1 1 1 1 .
