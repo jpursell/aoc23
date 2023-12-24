@@ -1,8 +1,10 @@
 use ndarray::{Array2, Array3};
+use std::collections::BTreeSet;
 use std::fmt::Display;
 use std::str::FromStr;
+use std::time::Instant;
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Default, Clone, Copy)]
 struct Position {
     index: [usize; 2],
 }
@@ -57,6 +59,9 @@ impl Position {
             Direction::W => Position::new(*self.row(), *self.col() - distance),
         }
     }
+    fn move_possible(&self, distance: &usize, direction: &Direction, loss_map: &LossMap) -> bool {
+        !self.on_edge(&direction, loss_map, distance)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Default)]
@@ -66,6 +71,17 @@ enum Direction {
     E,
     S,
     W,
+}
+
+impl Direction {
+    fn all_but(direction: &Direction) -> [Direction; 3] {
+        match direction {
+            Direction::N => [Direction::E, Direction::S, Direction::W],
+            Direction::E => [Direction::N, Direction::S, Direction::W],
+            Direction::S => [Direction::N, Direction::E, Direction::W],
+            Direction::W => [Direction::N, Direction::E, Direction::S],
+        }
+    }
 }
 
 impl Display for Direction {
@@ -183,15 +199,6 @@ impl FromStr for LossMap {
 }
 
 impl Solver {
-    fn move_possible(
-        &self,
-        position: &Position,
-        distance: &usize,
-        direction: &Direction,
-        loss_map: &LossMap,
-    ) -> bool {
-        !position.on_edge(&direction, loss_map, distance)
-    }
     /// Visit node
     /// Node will become added to visited list
     /// All nodes connected will be updated in table
@@ -210,7 +217,7 @@ impl Solver {
                 continue;
             }
             for distance in 1..=3 {
-                if self.move_possible(position, &distance, &direction, loss_map) {
+                if position.move_possible(&distance, &direction, loss_map) {
                     let new_position = position.move_by(&distance, &direction);
                     if self.visited[new_position.index] {
                         continue;
@@ -225,10 +232,10 @@ impl Solver {
                         entry.loss = loss;
                         entry.last_direction = direction;
                         entry.last_position = *position;
-                        println!(
-                            "visit pos {} set new pos {} loss to {} moving in dir {}",
-                            position, new_position, loss, direction
-                        );
+                        // println!(
+                        //     "visit pos {} set new pos {} loss to {} moving in dir {}",
+                        //     position, new_position, loss, direction
+                        // );
                     }
                 }
             }
@@ -327,10 +334,131 @@ impl Solver {
     }
 }
 
+struct BruteSolver {
+    position_vec: Vec<Position>,
+    position_set: BTreeSet<Position>,
+    directions: Vec<Direction>,
+    distances: Vec<usize>,
+    loss: usize,
+    best_loss: usize,
+    best_positions: Vec<Position>,
+}
+
+impl BruteSolver {
+    fn new() -> BruteSolver {
+        let mut position_vec = Vec::new();
+        let mut position_set = BTreeSet::new();
+        let directions = vec![Direction::N];
+
+        let start = Position::new(0, 0);
+        position_vec.push(start);
+        position_set.insert(start);
+
+        BruteSolver {
+            position_vec,
+            position_set,
+            directions,
+            distances: Vec::new(),
+            loss: 0,
+            best_loss: usize::MAX,
+            best_positions: Vec::new(),
+        }
+    }
+
+    fn make_move(
+        &mut self,
+        position: &Position,
+        distance: &usize,
+        direction: &Direction,
+        loss_map: &LossMap,
+    ) -> Result<(), ()> {
+        let mut current = *position;
+        let mut new_positions = Vec::new();
+        for _ in 0..*distance {
+            current = current.move_by(&1, direction);
+            self.loss += loss_map.data[current.index] as usize;
+            if self.position_set.contains(&current) {
+                return Err(());
+            }
+            new_positions.push(current);
+        }
+        for new_position in new_positions {
+            self.position_vec.push(new_position);
+            self.position_set.insert(new_position);
+        }
+        self.directions.push(*direction);
+        self.distances.push(*distance);
+        Ok(())
+    }
+
+    fn undo_move(&mut self, loss_map: &LossMap) {
+        let distance = self.distances.pop().unwrap();
+        self.directions.pop();
+        for _ in 0..distance {
+            let position = self.position_vec.pop().unwrap();
+            self.position_set.remove(&position);
+            self.loss -= loss_map.data[position.index] as usize;
+        }
+    }
+
+    fn complete(&self, loss_map: &LossMap) -> bool {
+        let last_position = self.position_vec.last().unwrap();
+        *last_position.row() == loss_map.nrows - 1 && *last_position.col() == loss_map.ncols - 1
+    }
+
+    fn solve_inner(&mut self, loss_map: &LossMap) {
+        let position = *self.position_vec.last().unwrap();
+        let last_direction = self.directions.last().unwrap();
+        for direction in Direction::all_but(last_direction) {
+            for distance in 1..=3 {
+                if !position.move_possible(&distance, &direction, loss_map) {
+                    continue;
+                }
+                match self.make_move(&position, &distance, &direction, loss_map) {
+                    Ok(()) => {
+                        if self.complete(loss_map) {
+                            if self.loss < self.best_loss {
+                                self.best_loss = self.loss;
+                                self.best_positions = self.position_vec.clone();
+                            }
+                        } else {
+                            self.solve_inner(loss_map);
+                        }
+                        self.undo_move(loss_map);
+                    }
+                    Err(()) => (),
+                }
+            }
+        }
+    }
+    fn solve(&mut self, loss_map: &LossMap) -> usize {
+        self.solve_inner(loss_map);
+        self.best_loss
+    }
+}
+
 pub fn run(input: &str) -> usize {
     let loss_map = input.parse::<LossMap>().unwrap();
-    let mut solver = Solver::from(&loss_map);
-    solver.solve(&loss_map)
+    let fast_loss = {
+        let now = Instant::now();
+        let mut solver = Solver::from(&loss_map);
+        let fast_loss = solver.solve(&loss_map);
+        println!("fast took {}", now.elapsed().as_secs_f32());
+        fast_loss
+    };
+    let slow_loss = {
+        let now = Instant::now();
+        let mut solver = BruteSolver::new();
+        let loss = solver.solve(&loss_map);
+        println!("slow path:");
+        for pos in solver.best_positions {
+            println!("  {}", pos);
+        }
+        println!("slow took {}", now.elapsed().as_secs_f32());
+        loss
+    };
+    assert_eq!(fast_loss, slow_loss);
+    fast_loss
 }
 
 #[cfg(test)]
