@@ -300,6 +300,7 @@ impl Solver {
         let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
         let mut direction = &Direction::W;
         loop {
+            println!("trace: {}", current);
             match direction {
                 Direction::W => {
                     trace[[*current.row() * 2 + 1, *current.col() * 2]] = '#';
@@ -580,35 +581,53 @@ mod tests {
     #[test]
     fn test6_a() {
         // 000  6 9 3 6 2 3
-        //      #
+        //      *
         // 001  7 7 6 7 5 7
-
+        //      *
         // 002  4 3 5 3 5 7
+        //      *
+        // 003  1*2 6 8 2 9
+        //        *
+        // 004  4 1*7 4 2 6
+        //          *      
+        // 005  6 2 3*1*5*9
 
-        // 003  1#2 6 8 2 9
-        //        #
-        // 004  4 1 7 4#2 6
-        //            #   #
-        // 005  6 2#3 1 5#9
 
         // fast took 0.00289
         // slow path:
         //   (0, 0)
-        //   (1, 0)
-        //   (2, 0)
         //   (3, 0)
         //   (3, 1)
         //   (4, 1)
         //   (4, 2)
         //   (5, 2)
-        //   (5, 3)
-        //   (5, 4)
         //   (5, 5)
         // slow took 50.311108
         // thread 'day_17::a::tests::test6_a' panicked at src\day_17\a.rs:488:5:
         // assertion `left == right` failed
         //   left: 42
         //  right: 40
+
+        // 000  6 9 3 6 2 3
+        //      #
+        // 001  7 7 6 7 5 7
+        //      #
+        // 002  4 3 5 3 5 7
+        //      #
+        // 003  1#2 6 8 2 9
+        //        #   
+        // 004  4 1 7 4#2#6
+        //        #   #   #
+        // 005  6 2#3#1 5 9
+
+        // trace: (0, 0)
+        // trace: (3, 0)
+        // trace: (3, 1)
+        // trace: (5, 1) X
+        // trace: (5, 3) X
+        // trace: (4, 3) X
+        // trace: (4, 5) X
+        // trace: (5, 5) 
 
         let input = r#"693623
 776757
