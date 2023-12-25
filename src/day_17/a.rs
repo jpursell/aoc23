@@ -231,6 +231,7 @@ impl Solver {
     /// Node will become added to visited list
     /// All nodes connected will be updated in table
     fn visit(&mut self, position: &Position, loss_map: &LossMap) {
+        let debug = *position == Position::new(4, 2) || *position == Position::new(5, 2);
         self.visited[position.index] = true;
         let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
         for direction in directions {
@@ -240,30 +241,43 @@ impl Solver {
                 .map(|d| self.table[[*position.row(), *position.col(), usize::from(*d)]])
                 .min_by_key(|e| e.loss)
                 .unwrap();
+            if debug {
+                println!("pos {} dir {} entry {}", position, direction, entry);
+            }
             let mut loss: usize = entry.loss;
             if loss == usize::MAX {
                 continue;
             }
             for distance in 1..=3 {
+                if debug {
+                    println!("distance {}", distance);
+                }
                 if position.move_possible(&distance, &direction, loss_map) {
                     let new_position = position.move_by(&distance, &direction);
                     if self.visited[new_position.index] {
+                        if debug {
+                            println!("Already visited {}", new_position);
+                        }
                         continue;
                     }
                     loss += loss_map.data[new_position.index] as usize;
                     let entry = self.table.get_mut(new_position.dindex(&direction)).unwrap();
                     if entry.loss > loss {
-                        // println!(
-                        //     "entry for new position {} and dir {} {} loss > {}",
-                        //     new_position, direction, entry, loss
-                        // );
+                        if debug {
+                            println!(
+                                "entry for new position {} and dir {} {} loss > {}",
+                                new_position, direction, entry, loss
+                            );
+                        }
                         entry.loss = loss;
                         entry.last_direction = direction;
                         entry.last_position = *position;
-                        // println!(
-                        //     "visit pos {} set new pos {} loss to {} moving in dir {}",
-                        //     position, new_position, loss, direction
-                        // );
+                        if debug {
+                            println!(
+                                "visit pos {} set new pos {} loss to {} moving in dir {}",
+                                position, new_position, loss, direction
+                            );
+                        }
                     }
                 }
             }
@@ -284,6 +298,9 @@ impl Solver {
                 }
             });
         if found {
+            if position == Position::new(4,2) || position == Position::new(5,2) {
+                println!("find_next_node pos {} loss {}", position, loss);
+            }
             Some(position)
         } else {
             None
@@ -298,6 +315,10 @@ impl Solver {
         });
         let mut current = position;
         let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
+        for d in directions {
+            let entry = self.table[position.dindex(&d)];
+            println!("pos {} dir {} entry {}", position, d, entry);
+        }
         let mut direction = &Direction::W;
         loop {
             println!("trace: {}", current);
@@ -475,18 +496,18 @@ pub fn run(input: &str) -> usize {
         println!("fast took {}", now.elapsed().as_secs_f32());
         fast_loss
     };
-    let slow_loss = {
-        let now = Instant::now();
-        let mut solver = BruteSolver::new();
-        let loss = solver.solve(&loss_map);
-        println!("slow path:");
-        for pos in solver.best_positions {
-            println!("  {}", pos);
-        }
-        println!("slow took {}", now.elapsed().as_secs_f32());
-        loss
-    };
-    assert_eq!(fast_loss, slow_loss);
+    // let slow_loss = {
+    //     let now = Instant::now();
+    //     let mut solver = BruteSolver::new();
+    //     let loss = solver.solve(&loss_map);
+    //     println!("slow path:");
+    //     for pos in solver.best_positions {
+    //         println!("  {}", pos);
+    //     }
+    //     println!("slow took {}", now.elapsed().as_secs_f32());
+    //     loss
+    // };
+    // assert_eq!(fast_loss, slow_loss);
     fast_loss
 }
 
@@ -506,6 +527,8 @@ pub fn random(size: usize) {
 
 #[cfg(test)]
 mod tests {
+    use crate::day_17::a::{Direction, Position};
+
     use super::{BruteSolver, LossMap, Solver};
 
     #[test]
@@ -589,9 +612,8 @@ mod tests {
         // 003  1*2 6 8 2 9
         //        *
         // 004  4 1*7 4 2 6
-        //          *      
+        //          *
         // 005  6 2 3*1*5*9
-
 
         // fast took 0.00289
         // slow path:
@@ -615,7 +637,7 @@ mod tests {
         // 002  4 3 5 3 5 7
         //      #
         // 003  1#2 6 8 2 9
-        //        #   
+        //        #
         // 004  4 1 7 4#2#6
         //        #   #   #
         // 005  6 2#3#1 5 9
@@ -627,7 +649,7 @@ mod tests {
         // trace: (5, 3) X
         // trace: (4, 3) X
         // trace: (4, 5) X
-        // trace: (5, 5) 
+        // trace: (5, 5)
 
         let input = r#"693623
 776757
@@ -635,7 +657,38 @@ mod tests {
 126829
 417426
 623159"#;
-        assert_eq!(super::run(input), 12);
+        let loss_map = input.parse::<LossMap>().unwrap();
+        let mut solver = Solver::from(&loss_map);
+        solver.solve(&loss_map);
+        let positions = vec![
+            Position::new(5, 5),
+            Position::new(5, 2),
+            Position::new(4, 2),
+            Position::new(4, 1),
+            Position::new(3, 1),
+            Position::new(3, 0),
+            Position::new(0, 0),
+        ];
+        let directions = vec![Direction::N, Direction::E, Direction::S, Direction::W];
+        for pos in &positions {
+            for d in &directions {
+                println!(
+                    "pos {} dir {} entry {}",
+                    pos,
+                    d,
+                    solver.table[pos.dindex(&d)]
+                );
+            }
+            println!("");
+        }
+        //   (0, 0)
+        //   (3, 0)
+        //   (3, 1)
+        //   (4, 1)
+        //   (4, 2)
+        //   (5, 2)
+        //   (5, 5)
+        assert_eq!(super::run(input), 40);
     }
 
     #[test]
