@@ -121,7 +121,50 @@ struct Lagoon {
     offset: Position,
 }
 
+enum ElementType {
+    Empty,
+    UpperLeft,
+    UpperRight,
+    BottomLeft,
+    BottomRight,
+    Virtical,
+    Horizontal,
+}
+
 impl Lagoon {
+    fn check_area(dug: &Array2<bool>, irow: usize, icol: usize) -> ElementType {
+        if !dug[[irow, icol]] {
+            return ElementType::Empty;
+        }
+        let left = dug[[irow, icol - 1]];
+        let right = dug[[irow, icol + 1]];
+        let top = dug[[irow - 1, icol]];
+        let bottom = dug[[irow + 1, icol]];
+
+        if top && bottom {
+            return ElementType::Virtical;
+        }
+        if left && right {
+            return ElementType::Horizontal;
+        }
+        if top {
+            if right {
+                return ElementType::BottomLeft;
+            }
+            if left {
+                return ElementType::BottomRight;
+            }
+        }
+        if bottom {
+            if right {
+                return ElementType::UpperLeft;
+            }
+            if left {
+                return ElementType::UpperRight;
+            }
+        }
+        panic!()
+    }
     fn new(dig_plan: &DigPlan) -> Lagoon {
         // find boundaries
         let (min_position, max_position) = {
@@ -157,7 +200,62 @@ impl Lagoon {
             });
         }
 
-        // todo fill trench
+        let trench = dug.clone();
+
+        // fill trench
+        for irow in 1..(nrows - 1) {
+            let mut inside = false;
+            let mut last = None;
+            for icol in 1..(ncols - 1) {
+                match Lagoon::check_area(&trench, irow, icol) {
+                    ElementType::BottomLeft => {
+                        // println!("{} {} BL", irow, icol);
+                        assert!(last.is_none());
+                        last = Some(ElementType::BottomLeft);
+                    }
+                    ElementType::Empty => (),
+                    ElementType::UpperLeft => {
+                        // println!("{} {} UL", irow, icol);
+                        assert!(last.is_none());
+                        last = Some(ElementType::UpperLeft)
+                    }
+                    ElementType::UpperRight => {
+                        // println!("{} {} UR", irow, icol);
+                        match last {
+                            Some(ElementType::BottomLeft) => {
+                                inside = !inside;
+                                last = None;
+                            }
+                            Some(ElementType::UpperLeft) => {
+                                last = None;
+                            }
+                            _ => panic!(),
+                        }
+                    },
+                    ElementType::BottomRight => {
+                        // println!("{} {} BR", irow, icol);
+                        match last {
+                            Some(ElementType::BottomLeft) => {
+                                last = None;
+                            }
+                            Some(ElementType::UpperLeft) => {
+                                inside = !inside;
+                                last = None;
+                            }
+                            _ => panic!(),
+                        }
+                    },
+                    ElementType::Virtical => {
+                        // println!("{} {} V", irow, icol);
+                        inside = !inside;
+                    }
+                    ElementType::Horizontal => (),
+                }
+                if inside {
+                    dug[[irow, icol]] = true;
+                }
+            }
+        }
 
         Lagoon {
             dug,
@@ -165,6 +263,10 @@ impl Lagoon {
             ncols,
             offset: min_position,
         }
+    }
+
+    fn count(&self) -> usize {
+        self.dug.iter().filter(|e| **e).count()
     }
 }
 
@@ -186,7 +288,7 @@ pub fn run(input: &str) -> usize {
     let plan = input.parse::<DigPlan>().unwrap();
     let lagoon = Lagoon::new(&plan);
     println!("{}", lagoon);
-    0
+    lagoon.count()
 }
 
 #[cfg(test)]
