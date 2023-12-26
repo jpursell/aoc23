@@ -254,12 +254,12 @@ impl Solver {
                 }
                 if position.move_possible(&distance, &direction, loss_map) {
                     let new_position = position.move_by(&distance, &direction);
-                    if self.visited[new_position.index] {
-                        if debug {
-                            println!("Already visited {}", new_position);
-                        }
-                        continue;
-                    }
+                    // if self.visited[new_position.index] {
+                    //     if debug {
+                    //         println!("Already visited {}", new_position);
+                    //     }
+                    //     continue;
+                    // }
                     loss += loss_map.data[new_position.index] as usize;
                     let entry = self.table.get_mut(new_position.dindex(&direction)).unwrap();
                     if entry.loss > loss {
