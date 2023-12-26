@@ -539,7 +539,7 @@ pub fn random(size: usize) {
 mod tests {
     use crate::day_17::a::{Direction, Position};
 
-    use super::{BruteSolver, LossMap, Solver};
+    use super::{LossMap, Solver};
 
     #[test]
     fn test1() {
