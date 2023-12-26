@@ -83,6 +83,14 @@ impl Direction {
             Direction::W => [Direction::N, Direction::E, Direction::S],
         }
     }
+    fn left_or_right(direction: &Direction) -> [Direction; 2] {
+        match direction {
+            Direction::N => [Direction::E, Direction::W],
+            Direction::E => [Direction::N, Direction::S],
+            Direction::S => [Direction::E, Direction::W],
+            Direction::W => [Direction::N, Direction::S],
+        }
+    }
 }
 
 impl Display for Direction {
@@ -231,13 +239,13 @@ impl Solver {
     /// Node will become added to visited list
     /// All nodes connected will be updated in table
     fn visit(&mut self, position: &Position, loss_map: &LossMap) {
-        let debug = *position == Position::new(4, 2) || *position == Position::new(5, 2);
+        // let debug = *position == Position::new(4, 2) || *position == Position::new(5, 2);
+        let debug = false;
         self.visited[position.index] = true;
         let directions = [Direction::N, Direction::E, Direction::S, Direction::W];
         for direction in directions {
-            let entry = directions
+            let entry = Direction::left_or_right(&direction)
                 .iter()
-                .filter(|d| **d != direction)
                 .map(|d| self.table[[*position.row(), *position.col(), usize::from(*d)]])
                 .min_by_key(|e| e.loss)
                 .unwrap();
@@ -254,15 +262,15 @@ impl Solver {
                 }
                 if position.move_possible(&distance, &direction, loss_map) {
                     let new_position = position.move_by(&distance, &direction);
-                    // if self.visited[new_position.index] {
-                    //     if debug {
-                    //         println!("Already visited {}", new_position);
-                    //     }
-                    //     continue;
-                    // }
                     loss += loss_map.data[new_position.index] as usize;
                     let entry = self.table.get_mut(new_position.dindex(&direction)).unwrap();
                     if entry.loss > loss {
+                        if self.visited[new_position.index] {
+                            self.visited[new_position.index] = false;
+                            if debug {
+                                println!("Unset visited for position {}", new_position);
+                            }
+                        }
                         if debug {
                             println!(
                                 "entry for new position {} and dir {} {} loss > {}",
@@ -298,7 +306,9 @@ impl Solver {
                 }
             });
         if found {
-            if position == Position::new(4,2) || position == Position::new(5,2) {
+            // let debug = position == Position::new(4, 2) || position == Position::new(5, 2);
+            let debug = false;
+            if debug {
                 println!("find_next_node pos {} loss {}", position, loss);
             }
             Some(position)
@@ -535,6 +545,12 @@ mod tests {
     fn test1() {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input), 102);
+    }
+
+    #[test]
+    fn test_main() {
+        let input = include_str!("data.txt");
+        assert_eq!(super::run(input), 1065);
     }
 
     #[test]
