@@ -27,7 +27,7 @@ impl FromStr for Direction {
 struct DigInstruction {
     direction: Direction,
     distance: usize,
-    color: String,
+    _color: String,
 }
 
 impl FromStr for DigInstruction {
@@ -41,7 +41,7 @@ impl FromStr for DigInstruction {
         Ok(DigInstruction {
             direction,
             distance,
-            color,
+            _color: color,
         })
     }
 }
@@ -116,8 +116,6 @@ impl Position {
 #[derive(Debug)]
 struct Lagoon {
     dug: Array2<bool>,
-    nrows: usize,
-    ncols: usize,
     offset: Position,
 }
 
@@ -231,7 +229,7 @@ impl Lagoon {
                             }
                             _ => panic!(),
                         }
-                    },
+                    }
                     ElementType::BottomRight => {
                         // println!("{} {} BR", irow, icol);
                         match last {
@@ -244,7 +242,7 @@ impl Lagoon {
                             }
                             _ => panic!(),
                         }
-                    },
+                    }
                     ElementType::Virtical => {
                         // println!("{} {} V", irow, icol);
                         inside = !inside;
@@ -259,8 +257,6 @@ impl Lagoon {
 
         Lagoon {
             dug,
-            nrows,
-            ncols,
             offset: min_position,
         }
     }
