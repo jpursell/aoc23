@@ -1,7 +1,5 @@
 use std::{fmt::Display, str::FromStr};
 
-use ndarray::Array2;
-
 #[derive(Debug)]
 enum Direction {
     U,
@@ -40,15 +38,6 @@ struct DigInstruction {
     distance: usize,
 }
 
-impl DigInstruction {
-    fn new(direction: Direction, distance: usize) -> DigInstruction {
-        DigInstruction {
-            direction,
-            distance,
-        }
-    }
-}
-
 impl Display for DigInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", self.direction, self.distance)
@@ -74,12 +63,6 @@ impl FromStr for DigInstruction {
 #[derive(Debug)]
 struct DigPlan {
     instructions: Vec<DigInstruction>,
-}
-
-impl DigPlan {
-    fn new(instructions: Vec<DigInstruction>) -> DigPlan {
-        DigPlan { instructions }
-    }
 }
 
 impl Display for DigPlan {
@@ -127,13 +110,6 @@ impl Position {
         self.index[1]
     }
 
-    fn index_from(&self, position: &Position) -> [usize; 2] {
-        [
-            (self.row() - position.row()) as usize,
-            (self.col() - position.col()) as usize,
-        ]
-    }
-
     fn move_by(&self, direction: &Direction, distance: &usize) -> Position {
         let distance = *distance as i64;
         match direction {
@@ -143,181 +119,178 @@ impl Position {
             Direction::R => Position::new(self.row(), self.col() + distance),
         }
     }
-
-    fn max(&self, other: &Position) -> Position {
-        Position::new(self.row().max(other.row()), self.col().max(other.col()))
-    }
-
-    fn min(&self, other: &Position) -> Position {
-        Position::new(self.row().min(other.row()), self.col().min(other.col()))
-    }
 }
 
 #[derive(Debug)]
 struct PolyLagoon {
-    vertices: Vec<Position>,
+    segments: Vec<Segment>,
 }
 
-enum ElementType {
-    Empty,
-    UpperLeft,
-    UpperRight,
-    BottomLeft,
-    BottomRight,
-    Virtical,
-    Horizontal,
+#[derive(Debug)]
+struct Segment {
+    points: [Position; 2],
 }
 
-// R 1
-// D 1
-// L 1
-// U 1
-//
-// 0 1
-// 3 2
+impl Display for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.points[0], self.points[1])
+    }
+}
+
+impl Segment {
+    fn new(a: Position, b: Position) -> Segment {
+        let points = [a, b];
+        Segment { points }
+    }
+    fn rows(&self) -> [i64; 2] {
+        [self.points[0].row(), self.points[1].row()]
+    }
+    fn cols(&self) -> [i64; 2] {
+        [self.points[0].col(), self.points[1].col()]
+    }
+    fn vertical(&self) -> bool {
+        let rows = self.rows();
+        let out = rows[0] != rows[1];
+        if out {
+            let cols = self.cols();
+            assert_eq!(cols[0], cols[1]);
+        }
+        out
+    }
+    fn contains(&self, row: i64) -> bool {
+        let rows = {
+            let mut rows = self.rows();
+            if rows[1] < rows[0] {
+                rows.swap(1, 0);
+            }
+            rows
+        };
+        if row < rows[0] || row >= rows[1] {
+            return false;
+        }
+        true
+    }
+}
 
 impl PolyLagoon {
-    // fn check_area(dug: &Array2<bool>, irow: usize, icol: usize) -> ElementType {
-    //     if !dug[[irow, icol]] {
-    //         return ElementType::Empty;
-    //     }
-    //     let left = dug[[irow, icol - 1]];
-    //     let right = dug[[irow, icol + 1]];
-    //     let top = dug[[irow - 1, icol]];
-    //     let bottom = dug[[irow + 1, icol]];
-
-    //     if top && bottom {
-    //         return ElementType::Virtical;
-    //     }
-    //     if left && right {
-    //         return ElementType::Horizontal;
-    //     }
-    //     if top {
-    //         if right {
-    //             return ElementType::BottomLeft;
-    //         }
-    //         if left {
-    //             return ElementType::BottomRight;
-    //         }
-    //     }
-    //     if bottom {
-    //         if right {
-    //             return ElementType::UpperLeft;
-    //         }
-    //         if left {
-    //             return ElementType::UpperRight;
-    //         }
-    //     }
-    //     panic!()
-    // }
     fn new(dig_plan: &DigPlan) -> PolyLagoon {
-        // find boundaries
+        // create vertices
         let mut position = Position::new(0, 0);
         let mut vertices = Vec::new();
-        dig_plan.instructions.iter().for_each(|instruction| {
-            position = position.move_by(&instruction.direction, &instruction.distance);
-            dbg!(&position);
-            match instruction.direction {
-                Direction::L => {
-                    vertices.push(Position::new(position.row(), position.col()));
+        dig_plan
+            .instructions
+            .iter()
+            .enumerate()
+            .for_each(|(i, instruction)| {
+                let next_instruction = match dig_plan.instructions.get(i + 1) {
+                    Some(ni) => ni,
+                    None => dig_plan.instructions.first().unwrap(),
+                };
+                position = position.move_by(&instruction.direction, &instruction.distance);
+                match instruction.direction {
+                    Direction::L => match next_instruction.direction {
+                        Direction::U => {
+                            vertices.push(Position::new(position.row() + 1, position.col()));
+                        }
+                        Direction::D => {
+                            vertices.push(Position::new(position.row() + 1, position.col() + 1));
+                        }
+                        _ => panic!(),
+                    },
+                    Direction::U => match next_instruction.direction {
+                        Direction::L => {
+                            vertices.push(Position::new(position.row() + 1, position.col()));
+                        }
+                        Direction::R => {
+                            vertices.push(Position::new(position.row(), position.col()));
+                        }
+                        _ => panic!(),
+                    },
+                    Direction::D => match next_instruction.direction {
+                        Direction::L => {
+                            vertices.push(Position::new(position.row() + 1, position.col() + 1));
+                        }
+                        Direction::R => {
+                            vertices.push(Position::new(position.row(), position.col() + 1));
+                        }
+                        _ => panic!(),
+                    },
+                    Direction::R => match next_instruction.direction {
+                        Direction::U => {
+                            vertices.push(Position::new(position.row(), position.col()));
+                        }
+                        Direction::D => {
+                            vertices.push(Position::new(position.row(), position.col() + 1));
+                        }
+                        _ => panic!(),
+                    },
                 }
-                Direction::U => {
-                    vertices.push(Position::new(position.row() - 1, position.col()));
-                }
-                Direction::D => {
-                    vertices.push(Position::new(position.row(), position.col() + 1));
-                }
-                Direction::R => {
-                    vertices.push(Position::new(position.row() - 1, position.col() + 1));
-                }
-            }
-            dbg!(&vertices);
-        });
+            });
 
-        // init data
-        // let nrows = usize::try_from(max_position.row() - min_position.row() + 1).unwrap();
-        // let ncols = usize::try_from(max_position.col() - min_position.col() + 1).unwrap();
-        // let mut dug = Array2::from_elem((nrows, ncols), false);
+        // vertices.iter().for_each(|v| println!("{}", v));
 
-        // dig trench
-        // {
-        //     let mut position = Position::new(0, 0);
-        //     dig_plan.instructions.iter().for_each(|instruction| {
-        //         (1..=instruction.distance).for_each(|_| {
-        //             position = position.move_by(&instruction.direction, &1);
-        //             dug[position.index_from(&min_position)] = true;
-        //         })
-        //     });
-        // }
+        let mut segments = vertices
+            .windows(2)
+            .map(|positions| Segment::new(positions[0], positions[1]))
+            .collect::<Vec<_>>();
+        segments.push(Segment::new(
+            *vertices.first().unwrap(),
+            *vertices.last().unwrap(),
+        ));
+        let segments = segments
+            .into_iter()
+            .filter(|s| s.vertical())
+            .collect::<Vec<_>>();
 
-        // let trench = dug.clone();
-
-        // fill trench
-        // for irow in 1..(nrows - 1) {
-        //     let mut inside = false;
-        //     let mut last = None;
-        //     for icol in 1..(ncols - 1) {
-        //         match Lagoon::check_area(&trench, irow, icol) {
-        //             ElementType::BottomLeft => {
-        //                 // println!("{} {} BL", irow, icol);
-        //                 assert!(last.is_none());
-        //                 last = Some(ElementType::BottomLeft);
-        //             }
-        //             ElementType::Empty => (),
-        //             ElementType::UpperLeft => {
-        //                 // println!("{} {} UL", irow, icol);
-        //                 assert!(last.is_none());
-        //                 last = Some(ElementType::UpperLeft)
-        //             }
-        //             ElementType::UpperRight => {
-        //                 // println!("{} {} UR", irow, icol);
-        //                 match last {
-        //                     Some(ElementType::BottomLeft) => {
-        //                         inside = !inside;
-        //                         last = None;
-        //                     }
-        //                     Some(ElementType::UpperLeft) => {
-        //                         last = None;
-        //                     }
-        //                     _ => panic!(),
-        //                 }
-        //             }
-        //             ElementType::BottomRight => {
-        //                 // println!("{} {} BR", irow, icol);
-        //                 match last {
-        //                     Some(ElementType::BottomLeft) => {
-        //                         last = None;
-        //                     }
-        //                     Some(ElementType::UpperLeft) => {
-        //                         inside = !inside;
-        //                         last = None;
-        //                     }
-        //                     _ => panic!(),
-        //                 }
-        //             }
-        //             ElementType::Virtical => {
-        //                 // println!("{} {} V", irow, icol);
-        //                 inside = !inside;
-        //             }
-        //             ElementType::Horizontal => (),
-        //         }
-        //         if inside {
-        //             dug[[irow, icol]] = true;
-        //         }
-        //     }
-        // }
-
-        PolyLagoon { vertices }
+        PolyLagoon { segments }
     }
 
-    // fn count(&self) -> usize {
-    //     self.dug.iter().filter(|e| **e).count()
-    // }
+    fn sorted_rows(&self) -> Vec<i64> {
+        let mut rows = self
+            .segments
+            .iter()
+            .map(|s| s.rows())
+            .collect::<Vec<_>>()
+            .concat();
+        rows.sort();
+        rows
+    }
+
+    fn count(&self) -> usize {
+        let rows = self.sorted_rows();
+        let mut area = 0;
+        for row_slice in rows.windows(2) {
+            if row_slice[0] == row_slice[1] {
+                continue;
+            }
+            let cols = {
+                let mut cols = self
+                    .segments
+                    .iter()
+                    .filter(|s| s.contains(row_slice[0]))
+                    .map(|s| s.cols()[0])
+                    .collect::<Vec<_>>();
+                cols.sort();
+                cols
+            };
+            assert_eq!(cols.len() % 2, 0);
+            let width = cols
+                .chunks(2)
+                .map(|c| c[1] - c[0])
+                .inspect(|w| assert!(*w > 0))
+                .map(|w| w as usize)
+                .sum::<usize>();
+            let length = row_slice[1] - row_slice[0];
+            assert!(length > 0);
+            area += width * length as usize;
+        }
+        area
+    }
 }
 
 impl Display for PolyLagoon {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.vertices
+        self.segments
             .iter()
             .for_each(|x| writeln!(f, "{}", x).unwrap());
         Ok(())
@@ -327,20 +300,33 @@ impl Display for PolyLagoon {
 pub fn run(input: &str) -> usize {
     let plan = input.parse::<DigPlan>().unwrap();
     let lagoon = PolyLagoon::new(&plan);
-    println!("{}", lagoon);
     // println!("{}", lagoon);
-    // lagoon.count()
-    0
+    lagoon.count()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{DigInstruction, DigPlan, PolyLagoon};
+    use super::{DigInstruction, DigPlan, Direction, PolyLagoon};
+
+    impl DigInstruction {
+        fn new(direction: Direction, distance: usize) -> DigInstruction {
+            DigInstruction {
+                direction,
+                distance,
+            }
+        }
+    }
+
+    impl DigPlan {
+        fn new(instructions: Vec<DigInstruction>) -> DigPlan {
+            DigPlan { instructions }
+        }
+    }
 
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 62);
+        assert_eq!(super::run(input), 952_408_144_115);
     }
     #[test]
     fn test_small() {
@@ -351,6 +337,45 @@ mod tests {
             DigInstruction::new(super::Direction::U, 1),
         ]);
         let lagoon = PolyLagoon::new(&plan);
-        println!("{}", lagoon);
+        // println!("{}", lagoon);
+        assert_eq!(lagoon.count(), 4);
+    }
+
+    #[test]
+    fn test_four_square() {
+        //   01234567
+        // 0 ###.###
+        // 1 #O###O#
+        // 2 ##OOO##
+        // 3 .#OOO#.
+        // 4 ##OOO##
+        // 5 #O###O#
+        // 6 ###.###
+        // 7
+        let plan = DigPlan::new(vec![
+            DigInstruction::new(super::Direction::R, 2),
+            DigInstruction::new(super::Direction::D, 1),
+            DigInstruction::new(super::Direction::R, 2),
+            DigInstruction::new(super::Direction::U, 1),
+            DigInstruction::new(super::Direction::R, 2),
+            DigInstruction::new(super::Direction::D, 2),
+            DigInstruction::new(super::Direction::L, 1),
+            DigInstruction::new(super::Direction::D, 2),
+            DigInstruction::new(super::Direction::R, 1),
+            DigInstruction::new(super::Direction::D, 2),
+            DigInstruction::new(super::Direction::L, 2),
+            DigInstruction::new(super::Direction::U, 1),
+            DigInstruction::new(super::Direction::L, 2),
+            DigInstruction::new(super::Direction::D, 1),
+            DigInstruction::new(super::Direction::L, 2),
+            DigInstruction::new(super::Direction::U, 2),
+            DigInstruction::new(super::Direction::R, 1),
+            DigInstruction::new(super::Direction::U, 2),
+            DigInstruction::new(super::Direction::L, 1),
+            DigInstruction::new(super::Direction::U, 2),
+        ]);
+        let lagoon = PolyLagoon::new(&plan);
+        // println!("{}", lagoon);
+        assert_eq!(lagoon.count(), 45);
     }
 }
