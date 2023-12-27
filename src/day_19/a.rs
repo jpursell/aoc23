@@ -36,14 +36,22 @@ impl FromStr for Instruction {
             let (value, destination) = s.split_once(":").unwrap();
             let value = value.parse::<usize>().unwrap();
             let parameter = parameter.parse::<Parameter>().unwrap();
-            return Ok(Instruction::GreaterThan((parameter, value, destination.to_string())));
+            return Ok(Instruction::GreaterThan((
+                parameter,
+                value,
+                destination.to_string(),
+            )));
         }
         if s.contains("<") {
             let (parameter, s) = s.split_once("<").unwrap();
             let (value, destination) = s.split_once(":").unwrap();
             let value = value.parse::<usize>().unwrap();
             let parameter = parameter.parse::<Parameter>().unwrap();
-            return Ok(Instruction::LessThan((parameter, value, destination.to_string())));
+            return Ok(Instruction::LessThan((
+                parameter,
+                value,
+                destination.to_string(),
+            )));
         }
         Ok(Instruction::Goto(s.to_string()))
     }
@@ -52,6 +60,31 @@ impl FromStr for Instruction {
 #[derive(Debug)]
 struct Workflow {
     instructions: Vec<Instruction>,
+}
+
+impl Workflow {
+    fn run(&self, part: &Part) -> &str {
+        for x in &self.instructions {
+            match x {
+                Instruction::Goto(destination) => {
+                    return &destination;
+                }
+                Instruction::LessThan((parameter, value, destination)) => {
+                    let parameter = part.get_parameter(parameter);
+                    if parameter < *value {
+                        return &destination;
+                    }
+                }
+                Instruction::GreaterThan((parameter, value, destination)) => {
+                    let parameter = part.get_parameter(parameter);
+                    if parameter > *value {
+                        return &destination;
+                    }
+                }
+            }
+        }
+        panic!()
+    }
 }
 
 #[derive(Debug)]
@@ -71,7 +104,10 @@ impl FromStr for NamedWorkflow {
                 .map(|s| s.parse::<Instruction>().unwrap())
                 .collect::<Vec<_>>(),
         };
-        Ok(NamedWorkflow{name: workflow_name.to_string(), workflow})
+        Ok(NamedWorkflow {
+            name: workflow_name.to_string(),
+            workflow,
+        })
     }
 }
 
@@ -81,6 +117,20 @@ struct Part {
     m: usize,
     a: usize,
     s: usize,
+}
+
+impl Part {
+    fn count(&self) -> usize {
+        self.x + self.m + self.a + self.s
+    }
+    fn get_parameter(&self, parameter: &Parameter) -> usize {
+        match parameter {
+            Parameter::X => self.x,
+            Parameter::M => self.m,
+            Parameter::A => self.a,
+            Parameter::S => self.s,
+        }
+    }
 }
 
 impl FromStr for Part {
@@ -109,7 +159,7 @@ impl FromStr for Part {
                 "s" => {
                     s = Some(value);
                 }
-                _ => panic!()
+                _ => panic!(),
             };
         });
         assert!(x.is_some());
@@ -128,6 +178,29 @@ impl FromStr for Part {
 struct System {
     workflows: HashMap<String, Workflow>,
     parts: Vec<Part>,
+}
+
+impl System {
+    fn run(&self) -> usize {
+        let mut count = 0;
+        self.parts.iter().for_each(|part| {
+            let mut location = "in";
+            loop {
+                location = self.workflows[location].run(part);
+                match location {
+                    "R" => {
+                        break;
+                    }
+                    "A" => {
+                        count += part.count();
+                        break;
+                    }
+                    _ => (),
+                };
+            }
+        });
+        count
+    }
 }
 
 impl FromStr for System {
@@ -152,9 +225,7 @@ impl FromStr for System {
 }
 
 pub fn run(input: &str) -> usize {
-    let system = input.parse::<System>().unwrap();
-    println!("{:?}", system);
-    0
+    input.parse::<System>().unwrap().run()
 }
 
 #[cfg(test)]
