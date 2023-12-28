@@ -224,10 +224,10 @@ impl System {
         if let Some(module) = self.modules.get_mut(&pulse.destination) {
             module.run(pulse)
         } else {
-            println!(
-                "tried to send pulse to non-existant module {}",
-                pulse.destination
-            );
+            // println!(
+            //     "tried to send pulse to non-existant module {}",
+            //     pulse.destination
+            // );
             None
         }
     }
