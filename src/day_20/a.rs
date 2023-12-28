@@ -1,5 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
+use itertools::Itertools;
+
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 enum Pulse {
     High,
@@ -33,7 +35,7 @@ trait Module {
     fn run(&mut self, pulse: &DirectedPulse) -> Option<Vec<DirectedPulse>>;
     fn get_name(&self) -> &str;
     fn get_destinations(&self) -> &Vec<String>;
-    // fn add_source(&self) ->
+    fn add_source(&mut self, source: &str);
 }
 
 enum State {
@@ -103,6 +105,8 @@ impl Module for FlipFlop {
     fn get_destinations(&self) -> &Vec<String> {
         &self.destinations
     }
+
+    fn add_source(&mut self, _source: &str) {}
 }
 
 struct Conjunction {
@@ -165,6 +169,10 @@ impl Module for Conjunction {
     fn get_destinations(&self) -> &Vec<String> {
         &self.destinations
     }
+
+    fn add_source(&mut self, source: &str) {
+        self.memory.insert(source.to_string(), Pulse::Low);
+    }
 }
 
 struct Broadcast {
@@ -203,6 +211,8 @@ impl Module for Broadcast {
     fn get_destinations(&self) -> &Vec<String> {
         &self.destinations
     }
+
+    fn add_source(&mut self, _source: &str) {}
 }
 
 struct System {
@@ -211,6 +221,9 @@ struct System {
 
 impl System {
     fn process_pulse(&mut self, pulse: &DirectedPulse) -> Option<Vec<DirectedPulse>> {
+        if pulse.destination == "output" {
+            return None;
+        }
         let module = self.modules.get_mut(&pulse.destination).unwrap();
         module.run(pulse)
     }
@@ -273,13 +286,24 @@ impl FromStr for System {
                 (module.get_name().to_string(), module)
             })
             .collect::<HashMap<_, _>>();
-        for module in modules.values() {
-            for destination in module.get_destinations() {
-                if let Some(new_module) = modules[destination].add_source(module.get_name()) {
-                    modules.insert(destination, new_module);
-                }
+        let source_dest = modules
+            .values()
+            .map(|module| {
+                let source = module.get_name();
+                module
+                    .get_destinations()
+                    .iter()
+                    .map(|d| (source.to_string(), d.clone()))
+                    .collect::<Vec<_>>()
+            })
+            .concat();
+        source_dest.iter().for_each(|(s, d)| {
+            if d == "output" {
+                return;
             }
-        }
+            let module = modules.get_mut(d).unwrap();
+            module.add_source(s);
+        });
         Ok(System { modules })
     }
 }
@@ -293,6 +317,11 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 0);
+        assert_eq!(super::run(input), 32_000_000);
+    }
+    #[test]
+    fn test2() {
+        let input = include_str!("example_data_2.txt");
+        assert_eq!(super::run(input), 11_687_500);
     }
 }
