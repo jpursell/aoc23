@@ -221,11 +221,15 @@ struct System {
 
 impl System {
     fn process_pulse(&mut self, pulse: &DirectedPulse) -> Option<Vec<DirectedPulse>> {
-        if pulse.destination == "output" {
-            return None;
+        if let Some(module) = self.modules.get_mut(&pulse.destination) {
+            module.run(pulse)
+        } else {
+            println!(
+                "tried to send pulse to non-existant module {}",
+                pulse.destination
+            );
+            None
         }
-        let module = self.modules.get_mut(&pulse.destination).unwrap();
-        module.run(pulse)
     }
 
     fn process_pulses(&mut self, pulses: &Vec<DirectedPulse>) -> Vec<DirectedPulse> {
@@ -298,11 +302,11 @@ impl FromStr for System {
             })
             .concat();
         source_dest.iter().for_each(|(s, d)| {
-            if d == "output" {
-                return;
+            if let Some(module) = modules.get_mut(d) {
+                module.add_source(s);
+            } else {
+                println!("tried to add source for non-existant module {}", d);
             }
-            let module = modules.get_mut(d).unwrap();
-            module.add_source(s);
         });
         Ok(System { modules })
     }
