@@ -1,6 +1,11 @@
-use std::{collections::HashMap, str::FromStr};
+use rayon::prelude::*;
+use simple_tqdm::ParTqdm;
+use std::{
+    collections::{BTreeSet, HashMap},
+    str::FromStr,
+};
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum Parameter {
     X,
     M,
@@ -85,6 +90,38 @@ impl Workflow {
         }
         panic!()
     }
+    /// Find points where the outcome changes in the parameter space
+    ///
+    /// GreaterThan creates the break at value + 1
+    /// a > 2
+    /// 0 1 2 3 4
+    ///       | |
+    ///
+    /// LessThan creates the break at value
+    /// a < 2
+    /// 0 1 2 3 4
+    /// | |
+    fn get_breaks(&self, parameter: &Parameter) -> Vec<usize> {
+        let mut ret = Vec::new();
+        for x in &self.instructions {
+            match x {
+                Instruction::LessThan((param, value, _)) => {
+                    if *param != *parameter {
+                        continue;
+                    }
+                    ret.push(*value);
+                }
+                Instruction::GreaterThan((param, value, _)) => {
+                    if *param != *parameter {
+                        continue;
+                    }
+                    ret.push(*value + 1);
+                }
+                Instruction::Goto(_) => (),
+            }
+        }
+        ret
+    }
 }
 
 #[derive(Debug)]
@@ -120,8 +157,8 @@ struct Part {
 }
 
 impl Part {
-    fn count(&self) -> usize {
-        self.x + self.m + self.a + self.s
+    fn new(x: usize, m: usize, a: usize, s: usize) -> Part {
+        Part { x, m, a, s }
     }
     fn get_parameter(&self, parameter: &Parameter) -> usize {
         match parameter {
@@ -177,29 +214,77 @@ impl FromStr for Part {
 #[derive(Debug)]
 struct System {
     workflows: HashMap<String, Workflow>,
-    parts: Vec<Part>,
 }
 
 impl System {
+    fn part_accepted(&self, part: &Part) -> bool {
+        let mut location = "in";
+        loop {
+            location = self.workflows[location].run(part);
+            match location {
+                "R" => {
+                    return false;
+                }
+                "A" => {
+                    return true;
+                }
+                _ => (),
+            };
+        }
+    }
+
     fn run(&self) -> usize {
+        let x_breaks = self.get_breaks(&Parameter::X);
+        let m_breaks = self.get_breaks(&Parameter::M);
+        let a_breaks = self.get_breaks(&Parameter::A);
+        let s_breaks = self.get_breaks(&Parameter::S);
+        x_breaks
+            .windows(2)
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .tqdm()
+            .map(|w| self.run_x_win(w, &m_breaks, &a_breaks, &s_breaks))
+            .sum()
+    }
+
+    fn run_x_win(
+        &self,
+        x_win: &[usize],
+        m_breaks: &Vec<usize>,
+        a_breaks: &Vec<usize>,
+        s_breaks: &Vec<usize>,
+    ) -> usize {
         let mut count = 0;
-        self.parts.iter().for_each(|part| {
-            let mut location = "in";
-            loop {
-                location = self.workflows[location].run(part);
-                match location {
-                    "R" => {
-                        break;
+        for m_win in m_breaks.windows(2) {
+            for a_win in a_breaks.windows(2) {
+                for s_win in s_breaks.windows(2) {
+                    if self.part_accepted(&Part::new(x_win[0], m_win[0], a_win[0], s_win[0])) {
+                        count += (x_win[1] - x_win[0])
+                            * (m_win[1] - m_win[0])
+                            * (a_win[1] - a_win[0])
+                            * (s_win[1] - s_win[0]);
                     }
-                    "A" => {
-                        count += part.count();
-                        break;
-                    }
-                    _ => (),
-                };
+                }
             }
-        });
+        }
         count
+    }
+
+    /// Get values in parameter space where things change
+    /// Returned vec will be sorted and have endpoints
+    fn get_breaks(&self, parameter: &Parameter) -> Vec<usize> {
+        let ret = self
+            .workflows
+            .iter()
+            .map(|(_, x)| x.get_breaks(parameter))
+            .collect::<Vec<_>>();
+        let ret = ret.concat();
+        let mut ret = ret.into_iter().collect::<BTreeSet<_>>();
+        ret.insert(1);
+        ret.insert(4001);
+        let mut ret = ret.into_iter().collect::<Vec<_>>();
+        ret.sort();
+        ret
     }
 }
 
@@ -215,12 +300,7 @@ impl FromStr for System {
                 (named_workflow.name, named_workflow.workflow)
             })
             .collect::<HashMap<String, Workflow>>();
-        let parts = s
-            .lines()
-            .filter(|line| line.len() > 0 && line.starts_with("{"))
-            .map(|line| line.parse::<Part>().unwrap())
-            .collect::<Vec<_>>();
-        Ok(System { workflows, parts })
+        Ok(System { workflows })
     }
 }
 
