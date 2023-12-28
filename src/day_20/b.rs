@@ -2,7 +2,7 @@ use std::{collections::HashMap, str::FromStr};
 
 use itertools::Itertools;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 enum Pulse {
     High,
     Low,
@@ -217,17 +217,24 @@ impl Module for Broadcast {
 
 struct System {
     modules: HashMap<String, Box<dyn Module>>,
+    count: usize,
+    done: bool,
 }
 
 impl System {
     fn process_pulse(&mut self, pulse: &DirectedPulse) -> Option<Vec<DirectedPulse>> {
         if let Some(module) = self.modules.get_mut(&pulse.destination) {
             module.run(pulse)
+        } else if pulse.destination == "rx" && pulse.pulse == Pulse::Low {
+            println!("done after {} button presses", self.count);
+            self.done = true;
+            None
         } else {
-            println!(
-                "tried to send pulse to non-existant module {}",
-                pulse.destination
-            );
+            // println!(
+            //     "tried to send pulse to non-existant module {} {:?} after {} button pushed",
+            //     pulse.destination, pulse.pulse, self.count
+            // );
+            // self.done = true;
             None
         }
     }
@@ -245,7 +252,8 @@ impl System {
     fn run(&mut self) -> usize {
         let mut low_count = 0;
         let mut high_count = 0;
-        for _ in 0..1000 {
+        while !self.done {
+            self.count += 1;
             let mut pulses = vec![DirectedPulse::new(
                 "button".to_string(),
                 "broadcast".to_string(),
@@ -263,7 +271,7 @@ impl System {
                 pulses = self.process_pulses(&pulses);
             }
         }
-        low_count * high_count
+        self.count
     }
 }
 
@@ -308,7 +316,11 @@ impl FromStr for System {
                 println!("tried to add source for non-existant module {}", d);
             }
         });
-        Ok(System { modules })
+        Ok(System {
+            modules,
+            count: 0,
+            done: false,
+        })
     }
 }
 
