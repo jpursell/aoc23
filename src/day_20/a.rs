@@ -31,6 +31,9 @@ impl DirectedPulse {
 }
 trait Module {
     fn run(&mut self, pulse: &DirectedPulse) -> Option<Vec<DirectedPulse>>;
+    fn get_name(&self) -> &str;
+    fn get_destinations(&self) -> &Vec<String>;
+    // fn add_source(&self) ->
 }
 
 enum State {
@@ -41,6 +44,21 @@ struct FlipFlop {
     state: State,
     name: String,
     destinations: Vec<String>,
+}
+
+impl FromStr for FlipFlop {
+    type Err = &'static str;
+
+    /// Parse things like "%zs -> db, fx"
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (_, s) = s.split_once("%").unwrap();
+        let (name, s) = s.split_once(" -> ").unwrap();
+        let destinations = s
+            .split(", ")
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
+        Ok(FlipFlop::new(name.to_string(), destinations))
+    }
 }
 
 impl FlipFlop {
@@ -77,12 +95,31 @@ impl Module for FlipFlop {
             },
         }
     }
+
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_destinations(&self) -> &Vec<String> {
+        &self.destinations
+    }
 }
 
 struct Conjunction {
     memory: HashMap<String, Pulse>,
     name: String,
     destinations: Vec<String>,
+}
+
+impl FromStr for Conjunction {
+    type Err = &'static str;
+    /// Parse things like "&sd -> mh, tx, sh, xf, zn, xs"
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (_, s) = s.split_once("&").unwrap();
+        let (name, s) = s.split_once(" -> ").unwrap();
+        let destinations = s.split(", ").map(|s| s.to_string()).collect::<Vec<_>>();
+        Ok(Conjunction::new(name.to_string(), Vec::new(), destinations))
+    }
 }
 
 impl Conjunction {
@@ -120,10 +157,28 @@ impl Module for Conjunction {
             ))
         }
     }
+
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_destinations(&self) -> &Vec<String> {
+        &self.destinations
+    }
 }
 
 struct Broadcast {
     destinations: Vec<String>,
+}
+
+impl FromStr for Broadcast {
+    type Err = &'static str;
+    /// Parse things like "broadcaster -> a, b, c"
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (_, s) = s.split_once("broadcaster -> ").unwrap();
+        let destinations = s.split(", ").map(|s| s.to_string()).collect::<Vec<_>>();
+        Ok(Broadcast::new(destinations))
+    }
 }
 
 impl Broadcast {
@@ -139,6 +194,14 @@ impl Module for Broadcast {
             self.destinations.clone(),
             pulse.pulse,
         ))
+    }
+
+    fn get_name(&self) -> &str {
+        "broadcast"
+    }
+
+    fn get_destinations(&self) -> &Vec<String> {
+        &self.destinations
     }
 }
 
@@ -187,10 +250,37 @@ impl System {
     }
 }
 
+/// Parse things like "broadcaster -> a, b, c" and "%a -> b"
+fn parse_module(line: &str) -> Box<dyn Module> {
+    if line.starts_with("broadcaster") {
+        Box::new(line.parse::<Broadcast>().unwrap())
+    } else if line.starts_with("%") {
+        Box::new(line.parse::<FlipFlop>().unwrap())
+    } else if line.starts_with("&") {
+        Box::new(line.parse::<Conjunction>().unwrap())
+    } else {
+        panic!()
+    }
+}
 impl FromStr for System {
     type Err = &'static str;
+    /// Parse things like "broadcaster -> a, b, c" and "%a -> b"
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        todo!()
+        let mut modules = s
+            .lines()
+            .map(|line| {
+                let module = parse_module(line);
+                (module.get_name().to_string(), module)
+            })
+            .collect::<HashMap<_, _>>();
+        for module in modules.values() {
+            for destination in module.get_destinations() {
+                if let Some(new_module) = modules[destination].add_source(module.get_name()) {
+                    modules.insert(destination, new_module);
+                }
+            }
+        }
+        Ok(System { modules })
     }
 }
 
