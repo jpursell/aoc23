@@ -1,6 +1,6 @@
-use std::{collections::HashMap, fmt::Display, str::FromStr};
-
 use itertools::Itertools;
+use num::Integer;
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 enum Pulse {
@@ -127,7 +127,7 @@ impl Module for FlipFlop {
                 State::On => {
                     if !self.reported {
                         self.reported = true;
-                        println!("{} state: {}", self.name, self.state);
+                        // println!("{} state: {}", self.name, self.state);
                     }
                     self.state = State::Off;
                     Some(DirectedPulse::from_vec(
@@ -211,7 +211,7 @@ impl Module for Conjunction {
         if self.all_high() {
             if !self.reported {
                 self.reported = true;
-                println!("all high {}", self.name);
+                // println!("all high {}", self.name);
             }
             Some(DirectedPulse::from_vec(
                 self.name.clone(),
@@ -301,6 +301,7 @@ struct System {
     modules: HashMap<String, Box<dyn Module>>,
     count: usize,
     done: bool,
+    lcm_data: HashMap<String, Option<usize>>,
 }
 
 impl System {
@@ -322,9 +323,22 @@ impl System {
     }
 
     fn process_pulses(&mut self, pulses: &Vec<DirectedPulse>) -> Vec<DirectedPulse> {
-        if self.modules["lx"].all_high().unwrap() {
-            println!("in process_pulses: pressed: {}", self.count);
-            println!("lx all high");
+        self.lcm_data
+            .iter_mut()
+            .filter(|x| x.1.is_none())
+            .for_each(|x| {
+                if self.modules[x.0].all_high().unwrap() {
+                    *x.1 = Some(self.count);
+                }
+            });
+        if self.lcm_data.values().all(|x| x.is_some()) {
+            let data = self
+                .lcm_data
+                .values()
+                .map(|x| x.unwrap())
+                .collect::<Vec<_>>();
+            let lcm = data.into_iter().reduce(|acc, e| acc.lcm(&e)).unwrap();
+            println!("lcm {}", lcm);
         }
         pulses
             .iter()
@@ -337,7 +351,7 @@ impl System {
 
     fn run(&mut self) -> usize {
         let mut bq_mem = self.modules["bq"].get_memory().unwrap().clone();
-        while !self.done {
+        while !self.done && self.count < 10000 {
             if *self.modules["bq"].get_memory().unwrap() != bq_mem {
                 println!("pressed: {}", self.count);
                 println!("bq {}", self.modules["bq"]);
@@ -399,13 +413,19 @@ impl FromStr for System {
             if let Some(module) = modules.get_mut(d) {
                 module.add_source(s);
             } else {
-                println!("tried to add source for non-existant module {}", d);
+                // println!("tried to add source for non-existant module {}", d);
             }
         });
+        let mut lcm_data = HashMap::new();
+        lcm_data.insert("lx".to_string(), None);
+        lcm_data.insert("db".to_string(), None);
+        lcm_data.insert("sd".to_string(), None);
+        lcm_data.insert("qz".to_string(), None);
         Ok(System {
             modules,
             count: 0,
             done: false,
+            lcm_data,
         })
     }
 }
