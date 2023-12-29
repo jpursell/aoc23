@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 use itertools::Itertools;
 
@@ -31,21 +31,26 @@ impl DirectedPulse {
             .collect::<Vec<_>>()
     }
 }
-trait Module {
+trait Module: Display {
     fn run(&mut self, pulse: &DirectedPulse) -> Option<Vec<DirectedPulse>>;
     fn get_name(&self) -> &str;
     fn get_destinations(&self) -> &Vec<String>;
+    fn get_memory(&self) -> Option<&HashMap<String, Pulse>>;
     fn add_source(&mut self, source: &str);
+    fn all_high(&self) -> Option<bool>;
 }
 
+#[derive(Clone, Copy)]
 enum State {
     On,
     Off,
 }
+#[derive(Clone)]
 struct FlipFlop {
     state: State,
     name: String,
     destinations: Vec<String>,
+    reported: bool,
 }
 
 impl FromStr for FlipFlop {
@@ -69,6 +74,47 @@ impl FlipFlop {
             state: State::Off,
             name,
             destinations,
+            reported: false,
+        }
+    }
+}
+
+impl Display for FlipFlop {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "%{} state:{}", self.name, self.state)
+    }
+}
+
+impl Display for Conjunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mem_str = self
+            .memory
+            .iter()
+            .map(|(name, pulse)| format!("{}:{}", name, pulse))
+            .join(", ");
+        write!(f, "&{} memory:{}", self.name, mem_str)
+    }
+}
+
+impl Display for Broadcast {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "broadcast")
+    }
+}
+
+impl Display for Pulse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Pulse::High => write!(f, "High"),
+            Pulse::Low => write!(f, "Low"),
+        }
+    }
+}
+impl Display for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            State::On => write!(f, "On"),
+            State::Off => write!(f, "Off"),
         }
     }
 }
@@ -79,6 +125,10 @@ impl Module for FlipFlop {
             Pulse::High => None,
             Pulse::Low => match self.state {
                 State::On => {
+                    if !self.reported {
+                        self.reported = true;
+                        println!("{} state: {}", self.name, self.state);
+                    }
                     self.state = State::Off;
                     Some(DirectedPulse::from_vec(
                         self.name.clone(),
@@ -107,12 +157,22 @@ impl Module for FlipFlop {
     }
 
     fn add_source(&mut self, _source: &str) {}
+
+    fn get_memory(&self) -> Option<&HashMap<String, Pulse>> {
+        None
+    }
+
+    fn all_high(&self) -> Option<bool> {
+        None
+    }
 }
 
+#[derive(Clone)]
 struct Conjunction {
     memory: HashMap<String, Pulse>,
     name: String,
     destinations: Vec<String>,
+    reported: bool,
 }
 
 impl FromStr for Conjunction {
@@ -136,6 +196,7 @@ impl Conjunction {
             memory,
             name,
             destinations,
+            reported: false,
         }
     }
     fn all_high(&self) -> bool {
@@ -148,6 +209,10 @@ impl Module for Conjunction {
         let mem = self.memory.get_mut(&pulse.source).unwrap();
         *mem = pulse.pulse;
         if self.all_high() {
+            if !self.reported {
+                self.reported = true;
+                println!("all high {}", self.name);
+            }
             Some(DirectedPulse::from_vec(
                 self.name.clone(),
                 self.destinations.clone(),
@@ -173,8 +238,17 @@ impl Module for Conjunction {
     fn add_source(&mut self, source: &str) {
         self.memory.insert(source.to_string(), Pulse::Low);
     }
+
+    fn get_memory(&self) -> Option<&HashMap<String, Pulse>> {
+        Some(&self.memory)
+    }
+
+    fn all_high(&self) -> Option<bool> {
+        Some(self.all_high())
+    }
 }
 
+#[derive(Clone)]
 struct Broadcast {
     destinations: Vec<String>,
 }
@@ -213,6 +287,14 @@ impl Module for Broadcast {
     }
 
     fn add_source(&mut self, _source: &str) {}
+
+    fn get_memory(&self) -> Option<&HashMap<String, Pulse>> {
+        None
+    }
+
+    fn all_high(&self) -> Option<bool> {
+        None
+    }
 }
 
 struct System {
@@ -240,6 +322,10 @@ impl System {
     }
 
     fn process_pulses(&mut self, pulses: &Vec<DirectedPulse>) -> Vec<DirectedPulse> {
+        if self.modules["lx"].all_high().unwrap() {
+            println!("in process_pulses: pressed: {}", self.count);
+            println!("lx all high");
+        }
         pulses
             .iter()
             .map(|pulse| self.process_pulse(pulse))
@@ -250,9 +336,17 @@ impl System {
     }
 
     fn run(&mut self) -> usize {
-        let mut low_count = 0;
-        let mut high_count = 0;
+        let mut bq_mem = self.modules["bq"].get_memory().unwrap().clone();
         while !self.done {
+            if *self.modules["bq"].get_memory().unwrap() != bq_mem {
+                println!("pressed: {}", self.count);
+                println!("bq {}", self.modules["bq"]);
+                bq_mem = self.modules["bq"].get_memory().unwrap().clone();
+            }
+            if self.modules["lx"].all_high().unwrap() {
+                println!("pressed: {}", self.count);
+                println!("lx all high");
+            }
             self.count += 1;
             let mut pulses = vec![DirectedPulse::new(
                 "button".to_string(),
@@ -260,14 +354,6 @@ impl System {
                 Pulse::Low,
             )];
             while !pulses.is_empty() {
-                pulses.iter().for_each(|p| match p.pulse {
-                    Pulse::High => {
-                        high_count += 1;
-                    }
-                    Pulse::Low => {
-                        low_count += 1;
-                    }
-                });
                 pulses = self.process_pulses(&pulses);
             }
         }
