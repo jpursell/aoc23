@@ -11,6 +11,7 @@ mod day_18;
 mod day_19;
 mod day_2;
 mod day_20;
+mod day_21;
 mod day_3;
 mod day_4;
 mod day_5;
@@ -112,6 +113,9 @@ fn main() {
         }
         20 => {
             day_20::run();
+        }
+        21 => {
+            day_21::run();
         }
         _ => {
             panic!();
