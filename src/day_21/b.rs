@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, str::FromStr};
+use std::{collections::BTreeSet, str::FromStr, ops::Rem};
 
 use ndarray::Array2;
 
@@ -108,20 +108,8 @@ impl GardenMap {
         positions.at.len()
     }
     fn on_plot(&self, position: &Position) -> bool {
-        let mut row = position.row();
-        let mut col = position.col();
-        while row < 0 {
-            row += self.nrows;
-        }
-        while col < 0 {
-            col += self.ncols;
-        }
-        while row >= self.nrows {
-            row -= self.nrows;
-        }
-        while col >= self.ncols {
-            col -= self.ncols;
-        }
+        let row = position.row().rem_euclid(self.nrows);
+        let col = position.col().rem_euclid(self.ncols);
         self.plot[[row as usize, col as usize]]
     }
 }
