@@ -1,54 +1,44 @@
-use std::str::FromStr;
+use std::{collections::BTreeSet, str::FromStr};
 
 use ndarray::Array2;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
 struct Position {
-    index: [usize; 2],
+    index: [i64; 2],
 }
 
 impl Position {
-    fn new(row: usize, col: usize) -> Position {
+    fn new(row: i64, col: i64) -> Position {
         Position { index: [row, col] }
+    }
+    fn row(&self) -> i64 {
+        self.index[0]
+    }
+    fn col(&self) -> i64 {
+        self.index[1]
+    }
+    fn neighbors(&self) -> [Position; 4] {
+        let row = self.row();
+        let col = self.col();
+        [
+            Position::new(row - 1, col),
+            Position::new(row + 1, col),
+            Position::new(row, col + 1),
+            Position::new(row, col - 1),
+        ]
     }
 }
 
 struct Positions {
-    at: Array2<bool>,
+    at: BTreeSet<Position>,
 }
 impl Positions {
     fn step(&self, garden_map: &GardenMap) -> Positions {
-        let mut at = Array2::from_elem((garden_map.nrows, garden_map.ncols), false);
-        at.indexed_iter_mut().for_each(|((irow, icol), x)| {
-            if !garden_map.plot[[irow, icol]] {
-                return;
-            }
-            if irow > 0 {
-                if let Some(val) = self.at.get([irow - 1, icol]) {
-                    if *val {
-                        *x = true;
-                        return;
-                    }
-                }
-            }
-            if let Some(val) = self.at.get([irow + 1, icol]) {
-                if *val {
-                    *x = true;
-                    return;
-                }
-            }
-            if icol > 0 {
-                if let Some(val) = self.at.get([irow, icol - 1]) {
-                    if *val {
-                        *x = true;
-                        return;
-                    }
-                }
-            }
-            if let Some(val) = self.at.get([irow, icol + 1]) {
-                if *val {
-                    *x = true;
-                    return;
+        let mut at = BTreeSet::new();
+        self.at.iter().for_each(|p| {
+            for new_pos in p.neighbors() {
+                if garden_map.on_plot(&new_pos) {
+                    at.insert(new_pos);
                 }
             }
         });
@@ -58,8 +48,8 @@ impl Positions {
 
 impl From<&GardenMap> for Positions {
     fn from(value: &GardenMap) -> Self {
-        let mut at = Array2::from_elem((value.nrows, value.ncols), false);
-        *at.get_mut(value.start.index).unwrap() = true;
+        let mut at = BTreeSet::new();
+        at.insert(value.start);
         Positions { at }
     }
 }
@@ -68,8 +58,8 @@ impl From<&GardenMap> for Positions {
 struct GardenMap {
     plot: Array2<bool>,
     start: Position,
-    nrows: usize,
-    ncols: usize,
+    nrows: i64,
+    ncols: i64,
 }
 
 impl FromStr for GardenMap {
@@ -79,7 +69,7 @@ impl FromStr for GardenMap {
         'outer: for (irow, line) in s.lines().enumerate() {
             for (icol, c) in line.chars().enumerate() {
                 if c == 'S' {
-                    start = Position::new(irow, icol);
+                    start = Position::new(irow as i64, icol as i64);
                     break 'outer;
                 }
             }
@@ -103,8 +93,8 @@ impl FromStr for GardenMap {
         Ok(GardenMap {
             plot,
             start,
-            nrows,
-            ncols,
+            nrows: nrows as i64,
+            ncols: ncols as i64,
         })
     }
 }
@@ -115,7 +105,24 @@ impl GardenMap {
         for _ in 0..steps {
             positions = positions.step(self);
         }
-        positions.at.iter().filter(|x| **x).count()
+        positions.at.len()
+    }
+    fn on_plot(&self, position: &Position) -> bool {
+        let mut row = position.row();
+        let mut col = position.col();
+        while row < 0 {
+            row += self.nrows;
+        }
+        while col < 0 {
+            col += self.ncols;
+        }
+        while row >= self.nrows {
+            row -= self.nrows;
+        }
+        while col >= self.ncols {
+            col -= self.ncols;
+        }
+        self.plot[[row as usize, col as usize]]
     }
 }
 
