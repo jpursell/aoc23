@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, str::FromStr, ops::Rem};
+use std::{collections::BTreeSet, fmt::Display, str::FromStr};
 
 use ndarray::Array2;
 
@@ -29,6 +29,12 @@ impl Position {
     }
 }
 
+impl Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.row(), self.col())
+    }
+}
+
 struct Positions {
     at: BTreeSet<Position>,
 }
@@ -43,6 +49,15 @@ impl Positions {
             }
         });
         Positions { at }
+    }
+    fn compare_from(&self, other: &Positions) {
+        for item in self.at.difference(&other.at) {
+            println!("added {}", item);
+        }
+        for item in other.at.difference(&self.at) {
+            println!("removed {}", item);
+        }
+        println!("added {}", self.at.len() - other.at.len());
     }
 }
 
@@ -101,11 +116,31 @@ impl FromStr for GardenMap {
 
 impl GardenMap {
     fn count_positions(&self, steps: usize) -> usize {
-        let mut positions = Positions::from(self);
-        for _ in 0..steps {
-            positions = positions.step(self);
+        let mut positions = [Positions::from(self), Positions::from(self)];
+        let mut size = Vec::new();
+        for step in 0..steps {
+            if step % 2 == 0 {
+                size.push(positions[step % 2].at.len() as i64);
+            }
+            let new_positions = positions[step % 2].step(self);
+            if (step + 1) > 1 && (step + 1) % 2 == 0 {
+                println!("\ncompare step {}", step + 1);
+                new_positions.compare_from(&positions[(step + 1) % 2]);
+            }
+            positions[(step + 1) % 2] = new_positions;
         }
-        positions.at.len()
+        let growth = size
+            .windows(2)
+            .map(|win| win[1] - win[0])
+            .collect::<Vec<_>>();
+        let growth_change = growth
+            .windows(2)
+            .map(|win| win[1] - win[0])
+            .collect::<Vec<_>>();
+        for (i, val) in growth_change.iter().enumerate() {
+            println!("step {} growth change {}", i * 2, val);
+        }
+        positions[steps % 2].at.len()
     }
     fn on_plot(&self, position: &Position) -> bool {
         let row = position.row().rem_euclid(self.nrows);
