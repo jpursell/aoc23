@@ -147,6 +147,18 @@ impl GardenMap {
         let col = position.col().rem_euclid(self.ncols);
         self.plot[[row as usize, col as usize]]
     }
+    fn distance_transform(&self) -> Array2<usize> {
+        let mut dt = Array2::from_elem((self.nrows as usize, self.ncols as usize) ,usize::MAX);
+        let n = dt.slice(s![..self.nrows - 1,1..self.ncols]);
+        let w = dt.slice(s![1..self.nrows,..self.ncols - 1]);
+        let s = dt.slice(s![1..self.nrows-1,1..self.ncols-1]);
+        &mut dt
+        .windows((2,2))
+        .into_iter()
+        .for_each(|x|{x[[0,0]] += 1});
+        // self.plot.windows((2,2))
+        dt
+    }
 }
 
 pub fn run(input: &str, steps: usize) -> usize {
