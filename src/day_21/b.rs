@@ -148,15 +148,65 @@ impl GardenMap {
         self.plot[[row as usize, col as usize]]
     }
     fn distance_transform(&self) -> Array2<usize> {
-        let mut dt = Array2::from_elem((self.nrows as usize, self.ncols as usize) ,usize::MAX);
-        let n = dt.slice(s![..self.nrows - 1,1..self.ncols]);
-        let w = dt.slice(s![1..self.nrows,..self.ncols - 1]);
-        let s = dt.slice(s![1..self.nrows-1,1..self.ncols-1]);
-        &mut dt
-        .windows((2,2))
-        .into_iter()
-        .for_each(|x|{x[[0,0]] += 1});
-        // self.plot.windows((2,2))
+        let nrows = self.nrows as usize;
+        let ncols = self.ncols as usize;
+        let mut dt = Array2::from_elem((nrows, ncols), usize::MAX);
+        let start = (self.start.row() as usize, self.start.col() as usize);
+        *dt.get_mut(start).unwrap() = 0;
+        loop {
+            let mut changed = false;
+            for irow in 0..nrows {
+                for icol in 0..ncols {
+                    if !self.plot[(irow, icol)] {
+                        continue;
+                    }
+                    let mut min_val = dt[[irow, icol]];
+                    if irow > 0 {
+                        let n = (irow - 1, icol);
+                        if self.plot[n] && dt[n] != usize::MAX {
+                            min_val = min_val.min(dt[n] + 1);
+                        }
+                    }
+                    if icol > 0 {
+                        let w = (irow, icol - 1);
+                        if self.plot[w] && dt[w] != usize::MAX {
+                            min_val = min_val.min(dt[w] + 1);
+                        }
+                    }
+                    if dt[[irow, icol]] != min_val {
+                        changed = true;
+                        *dt.get_mut([irow, icol]).unwrap() = min_val;
+                    }
+                }
+            }
+            for irow in (0..nrows - 1).rev() {
+                for icol in (0..ncols - 1).rev() {
+                    if !self.plot[(irow, icol)] {
+                        continue;
+                    }
+                    let mut min_val = dt[[irow, icol]];
+                    if irow < nrows - 1 {
+                        let s = (irow + 1, icol);
+                        if self.plot[s] && dt[s] != usize::MAX {
+                            min_val = min_val.min(dt[s] + 1);
+                        }
+                    }
+                    if icol < ncols - 1 {
+                        let e = (irow, icol + 1);
+                        if self.plot[e] && dt[e] != usize::MAX {
+                            min_val = min_val.min(dt[e] + 1);
+                        }
+                    }
+                    if dt[[irow, icol]] != min_val {
+                        changed = true;
+                        *dt.get_mut([irow, icol]).unwrap() = min_val;
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
         dt
     }
 }
@@ -167,6 +217,8 @@ pub fn run(input: &str, steps: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use super::GardenMap;
+
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
@@ -201,5 +253,23 @@ mod tests {
     fn test7() {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input, 5000), 16733044);
+    }
+    #[test]
+    fn test_dt() {
+        let input = include_str!("example_data.txt");
+        let gm = input.parse::<GardenMap>().unwrap();
+        let dt = gm.distance_transform();
+        let nrows = dt.shape()[0];
+        let ncols = dt.shape()[1];
+        for irow in 0..nrows {
+            for icol in 0..ncols {
+                if dt[[irow, icol]] == usize::MAX {
+                    print!(" .")
+                } else {
+                    print!("{:02}", dt[[irow, icol]]);
+                }
+            }
+            println!("");
+        }
     }
 }
