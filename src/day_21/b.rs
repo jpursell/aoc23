@@ -117,30 +117,66 @@ impl FromStr for GardenMap {
 impl GardenMap {
     fn count_positions(&self, steps: usize) -> usize {
         let mut positions = [Positions::from(self), Positions::from(self)];
-        let mut size = Vec::new();
+        // let mut size = Vec::new();
         for step in 0..steps {
-            if step % 2 == 0 {
-                size.push(positions[step % 2].at.len() as i64);
-            }
+            // if step % 2 == 0 {
+            //     size.push(positions[step % 2].at.len() as i64);
+            // }
             let new_positions = positions[step % 2].step(self);
-            if (step + 1) > 1 && (step + 1) % 2 == 0 {
-                println!("\ncompare step {}", step + 1);
-                new_positions.compare_from(&positions[(step + 1) % 2]);
-            }
+            // if (step + 1) > 1 && (step + 1) % 2 == 0 {
+            //     println!("\ncompare step {}", step + 1);
+            //     new_positions.compare_from(&positions[(step + 1) % 2]);
+            // }
             positions[(step + 1) % 2] = new_positions;
         }
-        let growth = size
-            .windows(2)
-            .map(|win| win[1] - win[0])
-            .collect::<Vec<_>>();
-        let growth_change = growth
-            .windows(2)
-            .map(|win| win[1] - win[0])
-            .collect::<Vec<_>>();
-        for (i, val) in growth_change.iter().enumerate() {
-            println!("step {} growth change {}", i * 2, val);
+        // let growth = size
+        //     .windows(2)
+        //     .map(|win| win[1] - win[0])
+        //     .collect::<Vec<_>>();
+        // let growth_change = growth
+        //     .windows(2)
+        //     .map(|win| win[1] - win[0])
+        //     .collect::<Vec<_>>();
+        // for (i, val) in growth_change.iter().enumerate() {
+        //     println!("step {} growth change {}", i * 2, val);
+        // }
+        for irow in 0..self.ncols {
+            for icol in 0..self.ncols {
+                if positions[steps % 2].at.contains(&Position::new(irow, icol)) {
+                    print!("O")
+                } else {
+                    if self.plot[[irow as usize, icol as usize]] {
+                        print!(".");
+                    } else {
+                        print!("#");
+                    }
+                }
+            }
+            println!("");
         }
         positions[steps % 2].at.len()
+    }
+    fn count_positions_from_distance(&self, steps: usize) -> usize {
+        let dt = self.distance_transform();
+        for irow in 0..self.ncols {
+            for icol in 0..self.ncols {
+                let n = dt[[irow as usize, icol as usize]];
+                if n <= steps && n % 2 == steps % 2 {
+                    print!("O")
+                } else {
+                    if self.plot[[irow as usize, icol as usize]] {
+                        print!(".");
+                    } else {
+                        print!("#");
+                    }
+                }
+            }
+            println!("");
+        }
+        dt.iter()
+            .filter(|&&x| x <= steps && x % 2 == steps % 2)
+            // .inspect(|x| {dbg!(x);})
+            .count()
     }
     fn on_plot(&self, position: &Position) -> bool {
         let row = position.row().rem_euclid(self.nrows);
@@ -211,48 +247,70 @@ impl GardenMap {
     }
 }
 
-pub fn run(input: &str, steps: usize) -> usize {
-    input.parse::<GardenMap>().unwrap().count_positions(steps)
+pub(crate) enum Mode {
+    DistanceTransform,
+    Basic,
+}
+pub fn run(input: &str, steps: usize, mode: Mode) -> usize {
+    match mode {
+        Mode::Basic => input.parse::<GardenMap>().unwrap().count_positions(steps),
+        Mode::DistanceTransform => input
+            .parse::<GardenMap>()
+            .unwrap()
+            .count_positions_from_distance(steps),
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::day_21::b::Mode;
+
     use super::GardenMap;
 
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 6), 16);
+        assert_eq!(super::run(input, 6, Mode::Basic), 16);
+    }
+    #[test]
+    fn test1_dt() {
+        let input = include_str!("example_data.txt");
+        assert_eq!(super::run(input, 6, Mode::DistanceTransform), 16);
     }
     #[test]
     fn test2() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 10), 50);
+        assert_eq!(super::run(input, 10, Mode::Basic), 50);
+    }
+    #[test]
+    fn test2_dt() {
+        let input = include_str!("example_data.txt");
+        assert_eq!(super::run(input, 10, Mode::DistanceTransform), 50);
     }
     #[test]
     fn test3() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 50), 1594);
+        assert_eq!(super::run(input, 50, Mode::Basic), 1594);
     }
     #[test]
     fn test4() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 100), 6536);
+        assert_eq!(super::run(input, 100, Mode::Basic), 6536);
     }
     #[test]
     fn test5() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 500), 167004);
+        assert_eq!(super::run(input, 500, Mode::Basic), 167004);
     }
     #[test]
     fn test6() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 1000), 668697);
+        assert_eq!(super::run(input, 1000, Mode::Basic), 668697);
     }
     #[test]
     fn test7() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 5000), 16733044);
+        assert_eq!(super::run(input, 5000, Mode::Basic), 16733044);
     }
     #[test]
     fn test_dt() {
