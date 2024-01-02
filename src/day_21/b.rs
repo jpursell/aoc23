@@ -1,6 +1,10 @@
-use std::{collections::BTreeSet, fmt::Display, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+    str::FromStr,
+};
 
-use ndarray::Array2;
+use ndarray::{s, Array1, Array2, ArrayView2, ArrayViewMut2};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
 struct Position {
@@ -244,6 +248,180 @@ impl GardenMap {
             }
         }
         dt
+    }
+}
+
+enum Edge {
+    Top(Array1<usize>),
+    Bottom(Array1<usize>),
+    Left(Array1<usize>),
+    Right(Array1<usize>),
+}
+struct DTTile {
+    edge: Edge,
+    count: usize,
+}
+impl DTTile {
+    fn from_point(start: &Position, garden_map: &GardenMap, steps: usize) -> [DTTile; 4] {
+        let nrows = garden_map.nrows as usize;
+        let ncols = garden_map.ncols as usize;
+        let mut dt = Array2::from_elem((nrows, ncols), usize::MAX);
+        let start = (start.row() as usize, start.col() as usize);
+        *dt.get_mut(start).unwrap() = 0;
+        DTTile::populate_distance_transform(&mut dt.view_mut(), garden_map);
+        let count = DTTile::count_dt(&dt.view(), steps);
+        let top_edge = DTTile::get_top_edge(&dt.view());
+        let bottom_edge = DTTile::get_bottom_edge(&dt.view());
+        let left_edge = DTTile::get_left_edge(&dt.view());
+        let right_edge = DTTile::get_right_edge(&dt.view());
+        [
+            DTTile {
+                count,
+                edge: top_edge,
+            },
+            DTTile {
+                count: 0,
+                edge: bottom_edge,
+            },
+            DTTile {
+                count: 0,
+                edge: left_edge,
+            },
+            DTTile {
+                count: 0,
+                edge: right_edge,
+            },
+        ]
+    }
+    fn from_edge(edge: &Edge, garden_map: &GardenMap, steps: usize) -> DTTile {
+        let nrows = garden_map.nrows as usize;
+        let ncols = garden_map.ncols as usize;
+        let mut dt = Array2::from_elem((nrows, ncols), usize::MAX);
+        match edge {
+            Edge::Top(arr) => {
+                let mut slice = dt.slice_mut(s![nrows - 1, ..]);
+                slice.assign(arr);
+            }
+            Edge::Left(arr) => {
+                let mut slice = dt.slice_mut(s![.., ncols - 1]);
+                slice.assign(arr);
+            }
+            Edge::Bottom(arr) => {
+                let mut slice = dt.slice_mut(s![0, ..]);
+                slice.assign(arr);
+            }
+            Edge::Right(arr) => {
+                let mut slice = dt.slice_mut(s![.., 0]);
+                slice.assign(arr);
+            }
+        };
+        DTTile::populate_distance_transform(&mut dt.view_mut(), garden_map);
+        let count = DTTile::count_dt(&dt.view(), steps);
+        let out_edge = match edge {
+            Edge::Top(_) => DTTile::get_top_edge(&dt.view()),
+            Edge::Bottom(_) => DTTile::get_bottom_edge(&dt.view()),
+            Edge::Left(_) => DTTile::get_left_edge(&dt.view()),
+            Edge::Right(_) => DTTile::get_right_edge(&dt.view()),
+        };
+        DTTile {
+            count,
+            edge: out_edge,
+        }
+    }
+    fn get_left_edge(dt: &ArrayView2<usize>) -> Edge {
+        Edge::Left(dt.slice(s![.., 0,]).to_owned())
+    }
+
+    fn get_top_edge(dt: &ArrayView2<usize>) -> Edge {
+        Edge::Top(dt.slice(s![0, ..]).to_owned())
+    }
+
+    fn get_bottom_edge(dt: &ArrayView2<usize>) -> Edge {
+        let nrows = dt.shape()[0];
+        Edge::Bottom(dt.slice(s![nrows - 1, ..]).to_owned())
+    }
+    fn get_right_edge(dt: &ArrayView2<usize>) -> Edge {
+        let ncols = dt.shape()[1];
+        Edge::Right(dt.slice(s![.., ncols - 1]).to_owned())
+    }
+
+    fn count_dt(dt: &ArrayView2<usize>, steps: usize) -> usize {
+        dt.iter()
+            .filter(|&&x| x <= steps && x % 2 == steps % 2)
+            .count()
+    }
+
+    fn populate_distance_transform(dt: &mut ArrayViewMut2<usize>, garden_map: &GardenMap) {
+        let nrows = garden_map.nrows as usize;
+        let ncols = garden_map.ncols as usize;
+        loop {
+            let mut changed = false;
+            for irow in 0..nrows {
+                for icol in 0..ncols {
+                    if !garden_map.plot[(irow, icol)] {
+                        continue;
+                    }
+                    let mut min_val = dt[[irow, icol]];
+                    if irow > 0 {
+                        let n = (irow - 1, icol);
+                        if garden_map.plot[n] && dt[n] != usize::MAX {
+                            min_val = min_val.min(dt[n] + 1);
+                        }
+                    }
+                    if icol > 0 {
+                        let w = (irow, icol - 1);
+                        if garden_map.plot[w] && dt[w] != usize::MAX {
+                            min_val = min_val.min(dt[w] + 1);
+                        }
+                    }
+                    if dt[[irow, icol]] != min_val {
+                        changed = true;
+                        *dt.get_mut([irow, icol]).unwrap() = min_val;
+                    }
+                }
+            }
+            for irow in (0..nrows - 1).rev() {
+                for icol in (0..ncols - 1).rev() {
+                    if !garden_map.plot[(irow, icol)] {
+                        continue;
+                    }
+                    let mut min_val = dt[[irow, icol]];
+                    if irow < nrows - 1 {
+                        let s = (irow + 1, icol);
+                        if garden_map.plot[s] && dt[s] != usize::MAX {
+                            min_val = min_val.min(dt[s] + 1);
+                        }
+                    }
+                    if icol < ncols - 1 {
+                        let e = (irow, icol + 1);
+                        if garden_map.plot[e] && dt[e] != usize::MAX {
+                            min_val = min_val.min(dt[e] + 1);
+                        }
+                    }
+                    if dt[[irow, icol]] != min_val {
+                        changed = true;
+                        *dt.get_mut([irow, icol]).unwrap() = min_val;
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+    }
+}
+struct CompositeDT {
+    tiles: BTreeMap<Position, DTTile>,
+}
+
+impl CompositeDT {
+    fn new(garden_map: &GardenMap, steps: usize) -> CompositeDT {
+        // make center
+        let center = DTTile::from_point(&garden_map.start, garden_map, steps);
+        // todo: properly add center and grow edges
+        // todo: thinking about refactoring tiles to use methods to create edges
+        let tiles = BTreeMap::new();
+        CompositeDT { tiles }
     }
 }
 
