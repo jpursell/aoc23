@@ -427,7 +427,7 @@ impl CompositeDT {
         let mut left = vec![Edge::default(); self.left.len() + 2];
         let mut right = vec![Edge::default(); self.right.len() + 2];
         let mut bottom = vec![Edge::default(); self.bottom.len() + 2];
-        let mut count = 0;
+        let mut count = self.count;
         self.top.iter().enumerate().for_each(|(i, old)| {
             let tile = DTTileCore::from_edge(old, garden_map, steps);
             count += tile.count_dt(steps);
@@ -512,8 +512,12 @@ pub fn run(input: &str, steps: usize, mode: Mode) -> usize {
         Mode::DistanceTransform => {
             let garden_map = input.parse::<GardenMap>().unwrap();
             let mut cdt = CompositeDT::new(&garden_map, steps);
+            println!("core count {}", cdt.count);
+            let mut rings = 0;
             loop {
                 let new_cdt = cdt.expand(&garden_map, steps);
+                rings += 1;
+                println!("ring {} count {}", rings, new_cdt.count);
                 if new_cdt.count == cdt.count {
                     break;
                 }
