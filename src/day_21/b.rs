@@ -1,10 +1,6 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Display,
-    str::FromStr,
-};
+use std::{collections::BTreeSet, fmt::Display, str::FromStr};
 
-use ndarray::{s, Array, Array1, Array2, ArrayView2, ArrayViewMut2};
+use ndarray::{s, Array1, Array2};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
 struct Position {
@@ -54,15 +50,15 @@ impl Positions {
         });
         Positions { at }
     }
-    fn compare_from(&self, other: &Positions) {
-        for item in self.at.difference(&other.at) {
-            println!("added {}", item);
-        }
-        for item in other.at.difference(&self.at) {
-            println!("removed {}", item);
-        }
-        println!("added {}", self.at.len() - other.at.len());
-    }
+    // fn compare_from(&self, other: &Positions) {
+    //     for item in self.at.difference(&other.at) {
+    //         println!("added {}", item);
+    //     }
+    //     for item in other.at.difference(&self.at) {
+    //         println!("removed {}", item);
+    //     }
+    //     println!("added {}", self.at.len() - other.at.len());
+    // }
 }
 
 impl From<&GardenMap> for Positions {
@@ -160,95 +156,95 @@ impl GardenMap {
         }
         positions[steps % 2].at.len()
     }
-    fn count_positions_from_distance(&self, steps: usize) -> usize {
-        let dt = self.distance_transform();
-        for irow in 0..self.ncols {
-            for icol in 0..self.ncols {
-                let n = dt[[irow as usize, icol as usize]];
-                if n <= steps && n % 2 == steps % 2 {
-                    print!("O")
-                } else {
-                    if self.plot[[irow as usize, icol as usize]] {
-                        print!(".");
-                    } else {
-                        print!("#");
-                    }
-                }
-            }
-            println!("");
-        }
-        dt.iter()
-            .filter(|&&x| x <= steps && x % 2 == steps % 2)
-            // .inspect(|x| {dbg!(x);})
-            .count()
-    }
+    // fn count_positions_from_distance(&self, steps: usize) -> usize {
+    //     let dt = self.distance_transform();
+    //     for irow in 0..self.ncols {
+    //         for icol in 0..self.ncols {
+    //             let n = dt[[irow as usize, icol as usize]];
+    //             if n <= steps && n % 2 == steps % 2 {
+    //                 print!("O")
+    //             } else {
+    //                 if self.plot[[irow as usize, icol as usize]] {
+    //                     print!(".");
+    //                 } else {
+    //                     print!("#");
+    //                 }
+    //             }
+    //         }
+    //         println!("");
+    //     }
+    //     dt.iter()
+    //         .filter(|&&x| x <= steps && x % 2 == steps % 2)
+    //         // .inspect(|x| {dbg!(x);})
+    //         .count()
+    // }
     fn on_plot(&self, position: &Position) -> bool {
         let row = position.row().rem_euclid(self.nrows);
         let col = position.col().rem_euclid(self.ncols);
         self.plot[[row as usize, col as usize]]
     }
-    fn distance_transform(&self) -> Array2<usize> {
-        let nrows = self.nrows as usize;
-        let ncols = self.ncols as usize;
-        let mut dt = Array2::from_elem((nrows, ncols), usize::MAX);
-        let start = (self.start.row() as usize, self.start.col() as usize);
-        *dt.get_mut(start).unwrap() = 0;
-        loop {
-            let mut changed = false;
-            for irow in 0..nrows {
-                for icol in 0..ncols {
-                    if !self.plot[(irow, icol)] {
-                        continue;
-                    }
-                    let mut min_val = dt[[irow, icol]];
-                    if irow > 0 {
-                        let n = (irow - 1, icol);
-                        if self.plot[n] && dt[n] != usize::MAX {
-                            min_val = min_val.min(dt[n] + 1);
-                        }
-                    }
-                    if icol > 0 {
-                        let w = (irow, icol - 1);
-                        if self.plot[w] && dt[w] != usize::MAX {
-                            min_val = min_val.min(dt[w] + 1);
-                        }
-                    }
-                    if dt[[irow, icol]] != min_val {
-                        changed = true;
-                        *dt.get_mut([irow, icol]).unwrap() = min_val;
-                    }
-                }
-            }
-            for irow in (0..nrows - 1).rev() {
-                for icol in (0..ncols - 1).rev() {
-                    if !self.plot[(irow, icol)] {
-                        continue;
-                    }
-                    let mut min_val = dt[[irow, icol]];
-                    if irow < nrows - 1 {
-                        let s = (irow + 1, icol);
-                        if self.plot[s] && dt[s] != usize::MAX {
-                            min_val = min_val.min(dt[s] + 1);
-                        }
-                    }
-                    if icol < ncols - 1 {
-                        let e = (irow, icol + 1);
-                        if self.plot[e] && dt[e] != usize::MAX {
-                            min_val = min_val.min(dt[e] + 1);
-                        }
-                    }
-                    if dt[[irow, icol]] != min_val {
-                        changed = true;
-                        *dt.get_mut([irow, icol]).unwrap() = min_val;
-                    }
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
-        dt
-    }
+    // fn distance_transform(&self) -> Array2<usize> {
+    //     let nrows = self.nrows as usize;
+    //     let ncols = self.ncols as usize;
+    //     let mut dt = Array2::from_elem((nrows, ncols), usize::MAX);
+    //     let start = (self.start.row() as usize, self.start.col() as usize);
+    //     *dt.get_mut(start).unwrap() = 0;
+    //     loop {
+    //         let mut changed = false;
+    //         for irow in 0..nrows {
+    //             for icol in 0..ncols {
+    //                 if !self.plot[(irow, icol)] {
+    //                     continue;
+    //                 }
+    //                 let mut min_val = dt[[irow, icol]];
+    //                 if irow > 0 {
+    //                     let n = (irow - 1, icol);
+    //                     if self.plot[n] && dt[n] != usize::MAX {
+    //                         min_val = min_val.min(dt[n] + 1);
+    //                     }
+    //                 }
+    //                 if icol > 0 {
+    //                     let w = (irow, icol - 1);
+    //                     if self.plot[w] && dt[w] != usize::MAX {
+    //                         min_val = min_val.min(dt[w] + 1);
+    //                     }
+    //                 }
+    //                 if dt[[irow, icol]] != min_val {
+    //                     changed = true;
+    //                     *dt.get_mut([irow, icol]).unwrap() = min_val;
+    //                 }
+    //             }
+    //         }
+    //         for irow in (0..nrows - 1).rev() {
+    //             for icol in (0..ncols - 1).rev() {
+    //                 if !self.plot[(irow, icol)] {
+    //                     continue;
+    //                 }
+    //                 let mut min_val = dt[[irow, icol]];
+    //                 if irow < nrows - 1 {
+    //                     let s = (irow + 1, icol);
+    //                     if self.plot[s] && dt[s] != usize::MAX {
+    //                         min_val = min_val.min(dt[s] + 1);
+    //                     }
+    //                 }
+    //                 if icol < ncols - 1 {
+    //                     let e = (irow, icol + 1);
+    //                     if self.plot[e] && dt[e] != usize::MAX {
+    //                         min_val = min_val.min(dt[e] + 1);
+    //                     }
+    //                 }
+    //                 if dt[[irow, icol]] != min_val {
+    //                     changed = true;
+    //                     *dt.get_mut([irow, icol]).unwrap() = min_val;
+    //                 }
+    //             }
+    //         }
+    //         if !changed {
+    //             break;
+    //         }
+    //     }
+    //     dt
+    // }
 }
 
 #[derive(Clone)]
@@ -268,10 +264,10 @@ impl Default for Edge {
 struct DTTileCore {
     dt: Array2<usize>,
 }
-struct DTTile {
-    edge: Edge,
-    count: usize,
-}
+// struct DTTile {
+//     edge: Edge,
+//     count: usize,
+// }
 
 impl DTTileCore {
     fn new(nrows: usize, ncols: usize) -> Self {
@@ -279,7 +275,7 @@ impl DTTileCore {
             dt: Array2::from_elem((nrows, ncols), usize::MAX),
         }
     }
-    fn from_point(start: &Position, garden_map: &GardenMap, steps: usize) -> Self {
+    fn from_point(start: &Position, garden_map: &GardenMap) -> Self {
         let nrows = garden_map.nrows as usize;
         let ncols = garden_map.ncols as usize;
         let mut core = Self::new(nrows, ncols);
@@ -288,7 +284,7 @@ impl DTTileCore {
         core.populate_distance_transform(garden_map);
         core
     }
-    fn from_edge(edge: &Edge, garden_map: &GardenMap, steps: usize) -> Self {
+    fn from_edge(edge: &Edge, garden_map: &GardenMap) -> Self {
         let nrows = garden_map.nrows as usize;
         let ncols = garden_map.ncols as usize;
         let mut core = Self::new(nrows, ncols);
@@ -429,50 +425,50 @@ impl CompositeDT {
         let mut bottom = vec![Edge::default(); self.bottom.len() + 2];
         let mut count = self.count;
         self.top.iter().enumerate().for_each(|(i, old)| {
-            let tile = DTTileCore::from_edge(old, garden_map, steps);
+            let tile = DTTileCore::from_edge(old, garden_map);
             count += tile.count_dt(steps);
             *top.get_mut(i + 1).unwrap() = tile.get_top_edge();
             if i == 0 {
                 // top left corner
-                let top_left = DTTileCore::from_edge(&tile.get_left_edge(), garden_map, steps);
+                let top_left = DTTileCore::from_edge(&tile.get_left_edge(), garden_map);
                 count += top_left.count_dt(steps);
                 *top.first_mut().unwrap() = top_left.get_top_edge();
                 *left.first_mut().unwrap() = top_left.get_left_edge();
             }
             if i == self.top.len() - 1 {
                 // top right corner
-                let top_right = DTTileCore::from_edge(&tile.get_right_edge(), garden_map, steps);
+                let top_right = DTTileCore::from_edge(&tile.get_right_edge(), garden_map);
                 count += top_right.count_dt(steps);
                 *top.last_mut().unwrap() = top_right.get_top_edge();
                 *right.first_mut().unwrap() = top_right.get_right_edge();
             }
         });
         self.bottom.iter().enumerate().for_each(|(i, old)| {
-            let tile = DTTileCore::from_edge(old, garden_map, steps);
+            let tile = DTTileCore::from_edge(old, garden_map);
             count += tile.count_dt(steps);
             *bottom.get_mut(i + 1).unwrap() = tile.get_bottom_edge();
             if i == 0 {
                 // bottom left corner
-                let bottom_left = DTTileCore::from_edge(&tile.get_left_edge(), garden_map, steps);
+                let bottom_left = DTTileCore::from_edge(&tile.get_left_edge(), garden_map);
                 count += bottom_left.count_dt(steps);
                 *bottom.first_mut().unwrap() = bottom_left.get_bottom_edge();
                 *left.last_mut().unwrap() = bottom_left.get_left_edge();
             }
             if i == self.bottom.len() - 1 {
                 // bottom right corner
-                let bottom_right = DTTileCore::from_edge(&tile.get_right_edge(), garden_map, steps);
+                let bottom_right = DTTileCore::from_edge(&tile.get_right_edge(), garden_map);
                 count += bottom_right.count_dt(steps);
                 *bottom.last_mut().unwrap() = bottom_right.get_bottom_edge();
                 *right.last_mut().unwrap() = bottom_right.get_right_edge();
             }
         });
         self.left.iter().enumerate().for_each(|(i, old)| {
-            let tile = DTTileCore::from_edge(old, garden_map, steps);
+            let tile = DTTileCore::from_edge(old, garden_map);
             count += tile.count_dt(steps);
             *left.get_mut(i + 1).unwrap() = tile.get_left_edge();
         });
         self.right.iter().enumerate().for_each(|(i, old)| {
-            let tile = DTTileCore::from_edge(old, garden_map, steps);
+            let tile = DTTileCore::from_edge(old, garden_map);
             count += tile.count_dt(steps);
             *right.get_mut(i + 1).unwrap() = tile.get_right_edge();
         });
@@ -485,7 +481,7 @@ impl CompositeDT {
         }
     }
     fn new(garden_map: &GardenMap, steps: usize) -> CompositeDT {
-        let center = DTTileCore::from_point(&garden_map.start, garden_map, steps);
+        let center = DTTileCore::from_point(&garden_map.start, garden_map);
         let count = center.count_dt(steps);
         // make first ring
         let left = vec![center.get_left_edge()];
@@ -532,7 +528,7 @@ pub fn run(input: &str, steps: usize, mode: Mode) -> usize {
 mod tests {
     use crate::day_21::b::Mode;
 
-    use super::GardenMap;
+    // use super::GardenMap;
 
     #[test]
     fn test1() {
@@ -579,22 +575,22 @@ mod tests {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input, 5000, Mode::Basic), 16733044);
     }
-    #[test]
-    fn test_dt() {
-        let input = include_str!("example_data.txt");
-        let gm = input.parse::<GardenMap>().unwrap();
-        let dt = gm.distance_transform();
-        let nrows = dt.shape()[0];
-        let ncols = dt.shape()[1];
-        for irow in 0..nrows {
-            for icol in 0..ncols {
-                if dt[[irow, icol]] == usize::MAX {
-                    print!(" .")
-                } else {
-                    print!("{:02}", dt[[irow, icol]]);
-                }
-            }
-            println!("");
-        }
-    }
+    // #[test]
+    // fn test_dt() {
+    //     let input = include_str!("example_data.txt");
+    //     let gm = input.parse::<GardenMap>().unwrap();
+    //     let dt = gm.distance_transform();
+    //     let nrows = dt.shape()[0];
+    //     let ncols = dt.shape()[1];
+    //     for irow in 0..nrows {
+    //         for icol in 0..ncols {
+    //             if dt[[irow, icol]] == usize::MAX {
+    //                 print!(" .")
+    //             } else {
+    //                 print!("{:02}", dt[[irow, icol]]);
+    //             }
+    //         }
+    //         println!("");
+    //     }
+    // }
 }
