@@ -374,8 +374,8 @@ impl DTTileCore {
                     }
                 }
             }
-            for irow in (0..nrows - 1).rev() {
-                for icol in (0..ncols - 1).rev() {
+            for irow in (0..nrows).rev() {
+                for icol in (0..ncols).rev() {
                     if !garden_map.plot[(irow, icol)] {
                         continue;
                     }
@@ -403,6 +403,25 @@ impl DTTileCore {
             }
         }
     }
+    fn print(&self, garden_map: &GardenMap, steps: usize) {
+        let nrows = self.dt.shape()[0];
+        let ncols = self.dt.shape()[1];
+        for irow in 0..nrows {
+            for icol in 0..ncols {
+                if garden_map.plot[[irow, icol]] {
+                    let d = self.dt[[irow, icol]];
+                    if d == usize::MAX {
+                        panic!()
+                    }
+                    print!("{:02}", d);
+                } else {
+                    assert_eq!(self.dt[[irow, icol]], usize::MAX);
+                    print!(" #");
+                }
+            }
+            println!("");
+        }
+    }
 }
 struct CompositeDT {
     count: usize,
@@ -424,8 +443,13 @@ impl CompositeDT {
         let mut right = vec![Edge::default(); self.right.len() + 2];
         let mut bottom = vec![Edge::default(); self.bottom.len() + 2];
         let mut count = self.count;
+        let debug = false;
         self.top.iter().enumerate().for_each(|(i, old)| {
             let tile = DTTileCore::from_edge(old, garden_map);
+            if debug {
+                println!("top tile {}", i + 1);
+                tile.print(garden_map, steps);
+            }
             count += tile.count_dt(steps);
             *top.get_mut(i + 1).unwrap() = tile.get_top_edge();
             if i == 0 {
@@ -556,9 +580,19 @@ mod tests {
         assert_eq!(super::run(input, 50, Mode::Basic), 1594);
     }
     #[test]
+    fn test3_dt() {
+        let input = include_str!("example_data.txt");
+        assert_eq!(super::run(input, 50, Mode::DistanceTransform), 1594);
+    }
+    #[test]
     fn test4() {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input, 100, Mode::Basic), 6536);
+    }
+    #[test]
+    fn test4_dt() {
+        let input = include_str!("example_data.txt");
+        assert_eq!(super::run(input, 100, Mode::DistanceTransform), 6536);
     }
     #[test]
     fn test5() {
@@ -566,14 +600,19 @@ mod tests {
         assert_eq!(super::run(input, 500, Mode::Basic), 167004);
     }
     #[test]
-    fn test6() {
+    fn test5_dt() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 1000, Mode::Basic), 668697);
+        assert_eq!(super::run(input, 500, Mode::DistanceTransform), 167004);
     }
     #[test]
-    fn test7() {
+    fn test6_dt() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 5000, Mode::Basic), 16733044);
+        assert_eq!(super::run(input, 1000, Mode::DistanceTransform), 668697);
+    }
+    #[test]
+    fn test7_dt() {
+        let input = include_str!("example_data.txt");
+        assert_eq!(super::run(input, 5000, Mode::DistanceTransform), 16733044);
     }
     // #[test]
     // fn test_dt() {
