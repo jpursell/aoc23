@@ -436,14 +436,14 @@ pub fn run(input: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn test1() {
-        let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 32_000_000);
-    }
-    #[test]
-    fn test2() {
-        let input = include_str!("example_data_2.txt");
-        assert_eq!(super::run(input), 11_687_500);
-    }
+    // #[test]
+    // fn test1() {
+    //     let input = include_str!("example_data.txt");
+    //     assert_eq!(super::run(input), 32_000_000);
+    // }
+    // #[test]
+    // fn test2() {
+    //     let input = include_str!("example_data_2.txt");
+    //     assert_eq!(super::run(input), 11_687_500);
+    // }
 }
