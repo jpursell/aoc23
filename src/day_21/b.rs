@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, fmt::Display, str::FromStr};
+use std::{fmt::Display, str::FromStr};
 
 use ndarray::{s, Array1, Array2};
 
@@ -17,55 +17,11 @@ impl Position {
     fn col(&self) -> i64 {
         self.index[1]
     }
-    fn neighbors(&self) -> [Position; 4] {
-        let row = self.row();
-        let col = self.col();
-        [
-            Position::new(row - 1, col),
-            Position::new(row + 1, col),
-            Position::new(row, col + 1),
-            Position::new(row, col - 1),
-        ]
-    }
 }
 
 impl Display for Position {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.row(), self.col())
-    }
-}
-
-struct Positions {
-    at: BTreeSet<Position>,
-}
-impl Positions {
-    fn step(&self, garden_map: &GardenMap) -> Positions {
-        let mut at = BTreeSet::new();
-        self.at.iter().for_each(|p| {
-            for new_pos in p.neighbors() {
-                if garden_map.on_plot(&new_pos) {
-                    at.insert(new_pos);
-                }
-            }
-        });
-        Positions { at }
-    }
-    // fn compare_from(&self, other: &Positions) {
-    //     for item in self.at.difference(&other.at) {
-    //         println!("added {}", item);
-    //     }
-    //     for item in other.at.difference(&self.at) {
-    //         println!("removed {}", item);
-    //     }
-    //     println!("added {}", self.at.len() - other.at.len());
-    // }
-}
-
-impl From<&GardenMap> for Positions {
-    fn from(value: &GardenMap) -> Self {
-        let mut at = BTreeSet::new();
-        at.insert(value.start);
-        Positions { at }
     }
 }
 
@@ -114,139 +70,6 @@ impl FromStr for GardenMap {
     }
 }
 
-impl GardenMap {
-    fn count_positions(&self, steps: usize) -> usize {
-        let mut positions = [Positions::from(self), Positions::from(self)];
-        // let mut size = Vec::new();
-        for step in 0..steps {
-            // if step % 2 == 0 {
-            //     size.push(positions[step % 2].at.len() as i64);
-            // }
-            let new_positions = positions[step % 2].step(self);
-            // if (step + 1) > 1 && (step + 1) % 2 == 0 {
-            //     println!("\ncompare step {}", step + 1);
-            //     new_positions.compare_from(&positions[(step + 1) % 2]);
-            // }
-            positions[(step + 1) % 2] = new_positions;
-        }
-        // let growth = size
-        //     .windows(2)
-        //     .map(|win| win[1] - win[0])
-        //     .collect::<Vec<_>>();
-        // let growth_change = growth
-        //     .windows(2)
-        //     .map(|win| win[1] - win[0])
-        //     .collect::<Vec<_>>();
-        // for (i, val) in growth_change.iter().enumerate() {
-        //     println!("step {} growth change {}", i * 2, val);
-        // }
-        for irow in 0..self.ncols {
-            for icol in 0..self.ncols {
-                if positions[steps % 2].at.contains(&Position::new(irow, icol)) {
-                    print!("O")
-                } else {
-                    if self.plot[[irow as usize, icol as usize]] {
-                        print!(".");
-                    } else {
-                        print!("#");
-                    }
-                }
-            }
-            println!("");
-        }
-        positions[steps % 2].at.len()
-    }
-    // fn count_positions_from_distance(&self, steps: usize) -> usize {
-    //     let dt = self.distance_transform();
-    //     for irow in 0..self.ncols {
-    //         for icol in 0..self.ncols {
-    //             let n = dt[[irow as usize, icol as usize]];
-    //             if n <= steps && n % 2 == steps % 2 {
-    //                 print!("O")
-    //             } else {
-    //                 if self.plot[[irow as usize, icol as usize]] {
-    //                     print!(".");
-    //                 } else {
-    //                     print!("#");
-    //                 }
-    //             }
-    //         }
-    //         println!("");
-    //     }
-    //     dt.iter()
-    //         .filter(|&&x| x <= steps && x % 2 == steps % 2)
-    //         // .inspect(|x| {dbg!(x);})
-    //         .count()
-    // }
-    fn on_plot(&self, position: &Position) -> bool {
-        let row = position.row().rem_euclid(self.nrows);
-        let col = position.col().rem_euclid(self.ncols);
-        self.plot[[row as usize, col as usize]]
-    }
-    // fn distance_transform(&self) -> Array2<usize> {
-    //     let nrows = self.nrows as usize;
-    //     let ncols = self.ncols as usize;
-    //     let mut dt = Array2::from_elem((nrows, ncols), usize::MAX);
-    //     let start = (self.start.row() as usize, self.start.col() as usize);
-    //     *dt.get_mut(start).unwrap() = 0;
-    //     loop {
-    //         let mut changed = false;
-    //         for irow in 0..nrows {
-    //             for icol in 0..ncols {
-    //                 if !self.plot[(irow, icol)] {
-    //                     continue;
-    //                 }
-    //                 let mut min_val = dt[[irow, icol]];
-    //                 if irow > 0 {
-    //                     let n = (irow - 1, icol);
-    //                     if self.plot[n] && dt[n] != usize::MAX {
-    //                         min_val = min_val.min(dt[n] + 1);
-    //                     }
-    //                 }
-    //                 if icol > 0 {
-    //                     let w = (irow, icol - 1);
-    //                     if self.plot[w] && dt[w] != usize::MAX {
-    //                         min_val = min_val.min(dt[w] + 1);
-    //                     }
-    //                 }
-    //                 if dt[[irow, icol]] != min_val {
-    //                     changed = true;
-    //                     *dt.get_mut([irow, icol]).unwrap() = min_val;
-    //                 }
-    //             }
-    //         }
-    //         for irow in (0..nrows - 1).rev() {
-    //             for icol in (0..ncols - 1).rev() {
-    //                 if !self.plot[(irow, icol)] {
-    //                     continue;
-    //                 }
-    //                 let mut min_val = dt[[irow, icol]];
-    //                 if irow < nrows - 1 {
-    //                     let s = (irow + 1, icol);
-    //                     if self.plot[s] && dt[s] != usize::MAX {
-    //                         min_val = min_val.min(dt[s] + 1);
-    //                     }
-    //                 }
-    //                 if icol < ncols - 1 {
-    //                     let e = (irow, icol + 1);
-    //                     if self.plot[e] && dt[e] != usize::MAX {
-    //                         min_val = min_val.min(dt[e] + 1);
-    //                     }
-    //                 }
-    //                 if dt[[irow, icol]] != min_val {
-    //                     changed = true;
-    //                     *dt.get_mut([irow, icol]).unwrap() = min_val;
-    //                 }
-    //             }
-    //         }
-    //         if !changed {
-    //             break;
-    //         }
-    //     }
-    //     dt
-    // }
-}
-
 #[derive(Clone)]
 enum Edge {
     Top(Array1<usize>),
@@ -264,10 +87,6 @@ impl Default for Edge {
 struct DTTileCore {
     dt: Array2<usize>,
 }
-// struct DTTile {
-//     edge: Edge,
-//     count: usize,
-// }
 
 impl DTTileCore {
     fn new(nrows: usize, ncols: usize) -> Self {
@@ -403,7 +222,7 @@ impl DTTileCore {
             }
         }
     }
-    fn print(&self, garden_map: &GardenMap, steps: usize) {
+    fn print(&self, garden_map: &GardenMap, _steps: usize) {
         let nrows = self.dt.shape()[0];
         let ncols = self.dt.shape()[1];
         for irow in 0..nrows {
@@ -433,11 +252,6 @@ struct CompositeDT {
 
 impl CompositeDT {
     fn expand(&self, garden_map: &GardenMap, steps: usize) -> Self {
-        // XTTTX
-        // LxtxR
-        // LlCrR
-        // LxbxR
-        // XBBBX
         let mut top = vec![Edge::default(); self.top.len() + 2];
         let mut left = vec![Edge::default(); self.left.len() + 2];
         let mut right = vec![Edge::default(); self.right.len() + 2];
@@ -522,114 +336,58 @@ impl CompositeDT {
     }
 }
 
-pub(crate) enum Mode {
-    DistanceTransform,
-    Basic,
-}
-pub fn run(input: &str, steps: usize, mode: Mode) -> usize {
-    match mode {
-        Mode::Basic => input.parse::<GardenMap>().unwrap().count_positions(steps),
-        Mode::DistanceTransform => {
-            let garden_map = input.parse::<GardenMap>().unwrap();
-            let mut cdt = CompositeDT::new(&garden_map, steps);
-            println!("core count {}", cdt.count);
-            let mut rings = 0;
-            loop {
-                let new_cdt = cdt.expand(&garden_map, steps);
-                rings += 1;
-                println!("ring {} count {}", rings, new_cdt.count);
-                if new_cdt.count == cdt.count {
-                    break;
-                }
-                cdt = new_cdt;
-            }
-            cdt.count
+pub fn run(input: &str, steps: usize) -> usize {
+    let garden_map = input.parse::<GardenMap>().unwrap();
+    let mut cdt = CompositeDT::new(&garden_map, steps);
+    // println!("core count {}", cdt.count);
+    // let mut rings = 0;
+    loop {
+        let new_cdt = cdt.expand(&garden_map, steps);
+        // rings += 1;
+        // println!("ring {} count {}", rings, new_cdt.count);
+        if new_cdt.count == cdt.count {
+            break;
         }
+        cdt = new_cdt;
     }
+    cdt.count
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::day_21::b::Mode;
-
-    // use super::GardenMap;
-
-    #[test]
-    fn test1() {
-        let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 6, Mode::Basic), 16);
-    }
     #[test]
     fn test1_dt() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 6, Mode::DistanceTransform), 16);
-    }
-    #[test]
-    fn test2() {
-        let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 10, Mode::Basic), 50);
+        assert_eq!(super::run(input, 6,), 16);
     }
     #[test]
     fn test2_dt() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 10, Mode::DistanceTransform), 50);
-    }
-    #[test]
-    fn test3() {
-        let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 50, Mode::Basic), 1594);
+        assert_eq!(super::run(input, 10,), 50);
     }
     #[test]
     fn test3_dt() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 50, Mode::DistanceTransform), 1594);
-    }
-    #[test]
-    fn test4() {
-        let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 100, Mode::Basic), 6536);
+        assert_eq!(super::run(input, 50,), 1594);
     }
     #[test]
     fn test4_dt() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 100, Mode::DistanceTransform), 6536);
-    }
-    #[test]
-    fn test5() {
-        let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 500, Mode::Basic), 167004);
+        assert_eq!(super::run(input, 100,), 6536);
     }
     #[test]
     fn test5_dt() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 500, Mode::DistanceTransform), 167004);
+        assert_eq!(super::run(input, 500,), 167004);
     }
     #[test]
     fn test6_dt() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 1000, Mode::DistanceTransform), 668697);
+        assert_eq!(super::run(input, 1000,), 668697);
     }
     #[test]
     fn test7_dt() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 5000, Mode::DistanceTransform), 16733044);
+        assert_eq!(super::run(input, 5000,), 16733044);
     }
-    // #[test]
-    // fn test_dt() {
-    //     let input = include_str!("example_data.txt");
-    //     let gm = input.parse::<GardenMap>().unwrap();
-    //     let dt = gm.distance_transform();
-    //     let nrows = dt.shape()[0];
-    //     let ncols = dt.shape()[1];
-    //     for irow in 0..nrows {
-    //         for icol in 0..ncols {
-    //             if dt[[irow, icol]] == usize::MAX {
-    //                 print!(" .")
-    //             } else {
-    //                 print!("{:02}", dt[[irow, icol]]);
-    //             }
-    //         }
-    //         println!("");
-    //     }
-    // }
 }
