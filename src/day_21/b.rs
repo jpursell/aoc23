@@ -279,7 +279,7 @@ impl CompositeDT {
         let mut right = vec![Edge::default(); self.right.len() + 2];
         let mut bottom = vec![Edge::default(); self.bottom.len() + 2];
         let mut count = self.count;
-        let debug = false;
+        let debug = true;
         self.top.iter().enumerate().for_each(|(i, old)| {
             let tile = DTTileCore::from_edge(old, garden_map);
             if debug {
