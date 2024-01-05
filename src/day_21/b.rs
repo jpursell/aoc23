@@ -112,10 +112,10 @@ impl DTTileCore {
     fn new() -> Self {
         DTTileCore::default()
     }
-    fn from_point(garden_map: &GardenMap) -> Self {
+    fn from_point(garden_map: &GardenMap, cmem: &mut CountMem) -> Self {
         let mut core = Self::new();
         core.start = Some(garden_map.start);
-        let dt = core.populate_distance_transform(garden_map);
+        let dt = core.populate_distance_transform(garden_map, cmem);
         let nrows = garden_map.nrows as usize;
         let ncols = garden_map.ncols as usize;
         core.upper_left = dt[[0, 0]];
@@ -176,7 +176,7 @@ impl DTTileCore {
         if prediction.is_some() {
             return *prediction.unwrap();
         }
-        let dt = self.populate_distance_transform(garden_map);
+        let dt = self.populate_distance_transform(garden_map, cmem);
         // DTTileCore::print(&dt.view(), garden_map);
         let count = dt
             .iter()
@@ -186,7 +186,16 @@ impl DTTileCore {
         count
     }
 
-    fn populate_distance_transform(&self, garden_map: &GardenMap) -> Array2<usize> {
+    fn populate_distance_transform(
+        &self,
+        garden_map: &GardenMap,
+        cmem: &mut CountMem,
+    ) -> Array2<usize> {
+        if self.start.is_none() {
+            if let Some(dt) = cmem.predict_dt(self) {
+                return dt;
+            }
+        }
         let nrows = garden_map.nrows as usize;
         let ncols = garden_map.ncols as usize;
         let mut dt = Array2::from_elem((nrows, ncols), usize::MAX);
@@ -254,6 +263,7 @@ impl DTTileCore {
                 break;
             }
         }
+        cmem.learn_dt(self, &dt);
         dt
     }
     // fn print(dt: &ArrayView2<usize>, garden_map: &GardenMap) {
@@ -384,7 +394,7 @@ impl CompositeDT {
         });
     }
     fn new(garden_map: &GardenMap, cmem: &mut CountMem) -> CompositeDT {
-        let center = DTTileCore::from_point(garden_map);
+        let center = DTTileCore::from_point(garden_map, cmem);
         let debug = false;
         if debug {
             println!("center {}", center.count_dt(garden_map, cmem));
@@ -413,6 +423,7 @@ impl CompositeDT {
 
 struct CountMem {
     data: BTreeMap<(usize, usize, usize, usize), usize>,
+    data_dt: BTreeMap<(usize, usize, usize, usize), Array2<i64>>,
     nrows: usize,
     steps: usize,
 }
@@ -421,6 +432,7 @@ impl CountMem {
     fn new(nrows: usize, steps: usize) -> CountMem {
         CountMem {
             data: BTreeMap::new(),
+            data_dt: BTreeMap::new(),
             nrows,
             steps,
         }
@@ -463,6 +475,35 @@ impl CountMem {
         }
         let key = CountMem::normalize(core);
         assert!(self.data.insert(key, count).is_none());
+    }
+
+    fn learn_dt(&mut self, core: &DTTileCore, dt: &Array2<usize>) {
+        let key = CountMem::normalize(core);
+        let offset = dt[[0, 0]] - key.0;
+        let dt = dt.mapv(|x| {
+            if x == usize::MAX {
+                i64::MAX
+            } else {
+                x as i64 - offset as i64
+            }
+        });
+        assert!(self.data_dt.insert(key, dt).is_none());
+    }
+
+    fn predict_dt(&self, core: &DTTileCore) -> Option<Array2<usize>> {
+        let key = CountMem::normalize(core);
+        if let Some(dt) = self.data_dt.get(&key) {
+            let offset = core.upper_left - key.0;
+            let dt = dt.mapv(|x| {
+                if x != i64::MAX {
+                    (x + offset as i64) as usize
+                } else {
+                    usize::MAX
+                }
+            });
+            return Some(dt);
+        }
+        None
     }
 }
 
