@@ -1,6 +1,10 @@
-use std::{collections::BTreeMap, fmt::Display, str::FromStr};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    fmt::Display,
+    str::FromStr,
+};
 
-use ndarray::{Array2, ArrayView2};
+use ndarray::Array2;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
 struct Position {
@@ -252,25 +256,25 @@ impl DTTileCore {
         }
         dt
     }
-    fn print(dt: &ArrayView2<usize>, garden_map: &GardenMap) {
-        let nrows = dt.shape()[0];
-        let ncols = dt.shape()[1];
-        for irow in 0..nrows {
-            for icol in 0..ncols {
-                if garden_map.plot[[irow, icol]] {
-                    let d = dt[[irow, icol]];
-                    if d == usize::MAX {
-                        panic!()
-                    }
-                    print!("{:02}", d);
-                } else {
-                    assert_eq!(dt[[irow, icol]], usize::MAX);
-                    print!(" #");
-                }
-            }
-            println!("");
-        }
-    }
+    // fn print(dt: &ArrayView2<usize>, garden_map: &GardenMap) {
+    //     let nrows = dt.shape()[0];
+    //     let ncols = dt.shape()[1];
+    //     for irow in 0..nrows {
+    //         for icol in 0..ncols {
+    //             if garden_map.plot[[irow, icol]] {
+    //                 let d = dt[[irow, icol]];
+    //                 if d == usize::MAX {
+    //                     panic!()
+    //                 }
+    //                 print!("{:02}", d);
+    //             } else {
+    //                 assert_eq!(dt[[irow, icol]], usize::MAX);
+    //                 print!(" #");
+    //             }
+    //         }
+    //         println!("");
+    //     }
+    // }
     fn print_corners(&self) {
         println!(
             "{},{}\n{},{}",
@@ -280,107 +284,104 @@ impl DTTileCore {
 }
 struct CompositeDT {
     count: usize,
-    left: Vec<Edge>,
-    right: Vec<Edge>,
-    top: Vec<Edge>,
-    bottom: Vec<Edge>,
+    left: VecDeque<Edge>,
+    right: VecDeque<Edge>,
+    top: VecDeque<Edge>,
+    bottom: VecDeque<Edge>,
 }
 
 impl CompositeDT {
-    fn expand(&self, garden_map: &GardenMap, cmem: &mut CountMem) -> Self {
-        let mut top = vec![Edge::default(); self.top.len() + 2];
-        let mut left = vec![Edge::default(); self.left.len() + 2];
-        let mut right = vec![Edge::default(); self.right.len() + 2];
-        let mut bottom = vec![Edge::default(); self.bottom.len() + 2];
-        let mut count = self.count;
+    fn expand(&mut self, garden_map: &GardenMap, cmem: &mut CountMem) {
         let debug = false;
-        self.top.iter().enumerate().for_each(|(i, old)| {
-            let tile = DTTileCore::from_edge(old, garden_map);
+        let n = self.top.len();
+        self.top.push_front(Edge::default());
+        self.top.push_back(Edge::default());
+        self.left.push_back(Edge::default());
+        self.left.push_front(Edge::default());
+        self.right.push_back(Edge::default());
+        self.right.push_front(Edge::default());
+        self.bottom.push_back(Edge::default());
+        self.bottom.push_front(Edge::default());
+        (1..=n).for_each(|i| {
+            let tile = DTTileCore::from_edge(self.top.get(i).unwrap(), garden_map);
+            *self.top.get_mut(i).unwrap() = tile.get_top_edge();
             if debug {
                 println!("top tile {} {}", i + 1, tile.count_dt(garden_map, cmem));
                 tile.print_corners();
             }
-            count += tile.count_dt(garden_map, cmem);
-            *top.get_mut(i + 1).unwrap() = tile.get_top_edge();
-            if i == 0 {
+            self.count += tile.count_dt(garden_map, cmem);
+            if i == 1 {
                 // top left corner
                 let top_left = DTTileCore::from_edge(&tile.get_left_edge(), garden_map);
                 if debug {
                     println!("top left {}", top_left.count_dt(garden_map, cmem));
                     top_left.print_corners();
                 }
-                count += top_left.count_dt(garden_map, cmem);
-                *top.first_mut().unwrap() = top_left.get_top_edge();
-                *left.first_mut().unwrap() = top_left.get_left_edge();
+                self.count += top_left.count_dt(garden_map, cmem);
+                *self.top.front_mut().unwrap() = top_left.get_top_edge();
+                *self.left.front_mut().unwrap() = top_left.get_left_edge();
             }
-            if i == self.top.len() - 1 {
+            if i == n {
                 // top right corner
                 let top_right = DTTileCore::from_edge(&tile.get_right_edge(), garden_map);
                 if debug {
                     println!("top right {}", top_right.count_dt(garden_map, cmem));
                     top_right.print_corners();
                 }
-                count += top_right.count_dt(garden_map, cmem);
-                *top.last_mut().unwrap() = top_right.get_top_edge();
-                *right.first_mut().unwrap() = top_right.get_right_edge();
+                self.count += top_right.count_dt(garden_map, cmem);
+                *self.top.back_mut().unwrap() = top_right.get_top_edge();
+                *self.right.front_mut().unwrap() = top_right.get_right_edge();
             }
         });
-        self.bottom.iter().enumerate().for_each(|(i, old)| {
-            let tile = DTTileCore::from_edge(old, garden_map);
+        (1..=n).for_each(|i| {
+            let tile = DTTileCore::from_edge(self.bottom.get(i).unwrap(), garden_map);
             if debug {
                 println!("bottom tile {} {}", i + 1, tile.count_dt(garden_map, cmem));
                 tile.print_corners();
             }
-            count += tile.count_dt(garden_map, cmem);
-            *bottom.get_mut(i + 1).unwrap() = tile.get_bottom_edge();
-            if i == 0 {
+            self.count += tile.count_dt(garden_map, cmem);
+            *self.bottom.get_mut(i).unwrap() = tile.get_bottom_edge();
+            if i == 1 {
                 // bottom left corner
                 let bottom_left = DTTileCore::from_edge(&tile.get_left_edge(), garden_map);
                 if debug {
                     println!("bottom left {}", bottom_left.count_dt(garden_map, cmem));
                     bottom_left.print_corners();
                 }
-                count += bottom_left.count_dt(garden_map, cmem);
-                *bottom.first_mut().unwrap() = bottom_left.get_bottom_edge();
-                *left.last_mut().unwrap() = bottom_left.get_left_edge();
+                self.count += bottom_left.count_dt(garden_map, cmem);
+                *self.bottom.front_mut().unwrap() = bottom_left.get_bottom_edge();
+                *self.left.back_mut().unwrap() = bottom_left.get_left_edge();
             }
-            if i == self.bottom.len() - 1 {
+            if i == n {
                 // bottom right corner
                 let bottom_right = DTTileCore::from_edge(&tile.get_right_edge(), garden_map);
                 if debug {
                     println!("bottom right {}", bottom_right.count_dt(garden_map, cmem));
                     bottom_right.print_corners();
                 }
-                count += bottom_right.count_dt(garden_map, cmem);
-                *bottom.last_mut().unwrap() = bottom_right.get_bottom_edge();
-                *right.last_mut().unwrap() = bottom_right.get_right_edge();
+                self.count += bottom_right.count_dt(garden_map, cmem);
+                *self.bottom.back_mut().unwrap() = bottom_right.get_bottom_edge();
+                *self.right.back_mut().unwrap() = bottom_right.get_right_edge();
             }
         });
-        self.left.iter().enumerate().for_each(|(i, old)| {
-            let tile = DTTileCore::from_edge(old, garden_map);
+        (1..=n).for_each(|i| {
+            let tile = DTTileCore::from_edge(self.left.get(i).unwrap(), garden_map);
             if debug {
                 println!("left tile {} {}", i + 1, tile.count_dt(garden_map, cmem));
                 tile.print_corners();
             }
-            count += tile.count_dt(garden_map, cmem);
-            *left.get_mut(i + 1).unwrap() = tile.get_left_edge();
+            self.count += tile.count_dt(garden_map, cmem);
+            *self.left.get_mut(i).unwrap() = tile.get_left_edge();
         });
-        self.right.iter().enumerate().for_each(|(i, old)| {
-            let tile = DTTileCore::from_edge(old, garden_map);
+        (1..=n).for_each(|i| {
+            let tile = DTTileCore::from_edge(self.right.get(i).unwrap(), garden_map);
             if debug {
                 println!("right tile {} {}", i + 1, tile.count_dt(garden_map, cmem));
                 tile.print_corners();
             }
-            count += tile.count_dt(garden_map, cmem);
-            *right.get_mut(i + 1).unwrap() = tile.get_right_edge();
+            self.count += tile.count_dt(garden_map, cmem);
+            *self.right.get_mut(i).unwrap() = tile.get_right_edge();
         });
-        CompositeDT {
-            count,
-            left,
-            right,
-            top,
-            bottom,
-        }
     }
     fn new(garden_map: &GardenMap, cmem: &mut CountMem) -> CompositeDT {
         let center = DTTileCore::from_point(garden_map);
@@ -391,10 +392,15 @@ impl CompositeDT {
         }
         let count = center.count_dt(garden_map, cmem);
         // make first ring
-        let left = vec![center.get_left_edge()];
-        let right = vec![center.get_right_edge()];
-        let top = vec![center.get_top_edge()];
-        let bottom = vec![center.get_bottom_edge()];
+        let n = (2 * cmem.steps / garden_map.nrows as usize) + 2;
+        let mut left = VecDeque::with_capacity(n);
+        let mut right = VecDeque::with_capacity(n);
+        let mut top = VecDeque::with_capacity(n);
+        let mut bottom = VecDeque::with_capacity(n);
+        left.push_front(center.get_left_edge());
+        right.push_front(center.get_right_edge());
+        top.push_front(center.get_top_edge());
+        bottom.push_front(center.get_bottom_edge());
         CompositeDT {
             count,
             left,
@@ -470,15 +476,15 @@ pub fn run(input: &str, steps: usize) -> usize {
     }
     let mut rings = 0;
     loop {
-        let new_cdt = cdt.expand(&garden_map, &mut cmem);
+        let old_count = cdt.count;
+        cdt.expand(&garden_map, &mut cmem);
         if debug {
             rings += 1;
-            println!("\nring {} count {}", rings, new_cdt.count);
+            println!("\nring {} count {}", rings, cdt.count);
         }
-        if new_cdt.count == cdt.count {
+        if cdt.count == old_count {
             break;
         }
-        cdt = new_cdt;
     }
     cdt.count
 }
