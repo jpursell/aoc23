@@ -89,7 +89,7 @@ impl Default for Edge {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 struct DTTileCore {
     start: Option<Position>,
     upper_left: usize,
@@ -523,6 +523,25 @@ impl CountMem {
     }
 }
 
+fn slow_expand_left(
+    tile: &DTTileCore,
+    garden_map: &GardenMap,
+    steps: usize,
+    cmem: &mut CountMem,
+) -> usize {
+    let mut count = 0;
+    let mut tile = *tile;
+    loop {
+        tile = DTTileCore::from_edge(&tile.get_left_edge(), garden_map);
+        let tile_count = tile.count_dt(garden_map, cmem);
+        if tile_count == 0 {
+            break;
+        }
+        count += tile_count;
+    }
+    count
+}
+
 // todo check this function and replace where it was copied from
 fn fast_expand_left(
     tile: &DTTileCore,
@@ -533,13 +552,13 @@ fn fast_expand_left(
     let mut count = 0;
 
     // how many reps?
-    let max_left = center.lower_left.max(center.upper_left);
+    let max_left = tile.lower_left.max(tile.upper_left);
     let ncols = garden_map.ncols as usize;
     let min_steps = (steps - ncols - max_left) / ncols / 2;
 
     let mut tile = if min_steps > 0 {
         // get pattern
-        let tile0 = DTTileCore::from_edge(&center.get_left_edge(), garden_map);
+        let tile0 = DTTileCore::from_edge(&tile.get_left_edge(), garden_map);
         let tile_count0 = tile0.count_dt(garden_map, cmem);
         let tile1 = DTTileCore::from_edge(&tile0.get_left_edge(), garden_map);
         let tile_count1 = tile1.count_dt(garden_map, cmem);
@@ -549,7 +568,7 @@ fn fast_expand_left(
         // predict tile
         tile1 + (ncols * 2 * min_steps - 1)
     } else {
-        center
+        *tile
     };
 
     loop {
@@ -569,55 +588,10 @@ fn fast_expand(garden_map: &GardenMap, steps: usize) -> usize {
     let mut count = center.count_dt(garden_map, cmem);
     let mut test_count = count;
 
-    // todo move this to fast_expand_left function
-    {
-        // expand left center
+    count += fast_expand_left(&center, garden_map, steps, cmem);
+    test_count += slow_expand_left(&center, garden_map, steps, cmem);
+    assert_eq!(count, test_count);
 
-        // how many reps?
-        let max_left = center.lower_left.max(center.upper_left);
-        let ncols = garden_map.ncols as usize;
-        let min_steps = (steps - ncols - max_left) / ncols / 2;
-
-        let mut tile = if min_steps > 0 {
-            // get pattern
-            let tile0 = DTTileCore::from_edge(&center.get_left_edge(), garden_map);
-            let tile_count0 = tile0.count_dt(garden_map, cmem);
-            let tile1 = DTTileCore::from_edge(&tile0.get_left_edge(), garden_map);
-            let tile_count1 = tile1.count_dt(garden_map, cmem);
-
-            count += (tile_count0 + tile_count1) * min_steps;
-
-            // predict tile
-            tile1 + (ncols * 2 * min_steps - 1)
-        } else {
-            center
-        };
-
-        loop {
-            tile = DTTileCore::from_edge(&tile.get_left_edge(), garden_map);
-            let tile_count = tile.count_dt(garden_map, cmem);
-            if tile_count == 0 {
-                break;
-            }
-            count += tile_count;
-        }
-    }
-
-    // do things slow way to check
-    let mut tile = center;
-    loop {
-        // get pattern
-        tile = DTTileCore::from_edge(&tile.get_left_edge(), garden_map);
-        let tile_count = tile.count_dt(garden_map, cmem);
-        if tile_count == 0 {
-            break;
-        }
-
-        test_count += tile_count;
-
-        break;
-    }
-    assert_eq!(test_count, count);
     count
 }
 
