@@ -74,7 +74,7 @@ impl FromStr for GardenMap {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum Edge {
     Top((usize, usize)),
     Bottom((usize, usize)),
@@ -88,6 +88,7 @@ impl Default for Edge {
     }
 }
 
+#[derive(Debug)]
 struct DTTileCore {
     start: Option<Position>,
     upper_left: usize,
@@ -393,6 +394,7 @@ impl CompositeDT {
             *self.right.get_mut(i).unwrap() = tile.get_right_edge();
         });
     }
+
     fn new(garden_map: &GardenMap, cmem: &mut CountMem) -> CompositeDT {
         let center = DTTileCore::from_point(garden_map, cmem);
         let debug = false;
@@ -507,6 +509,29 @@ impl CountMem {
     }
 }
 
+fn fast_expand(garden_map: &GardenMap, steps: usize) -> usize {
+    let cmem = &mut CountMem::new(garden_map.nrows as usize, steps);
+    let center = DTTileCore::from_point(garden_map, cmem);
+    let mut count = center.count_dt(garden_map, cmem);
+    let tile = &center;
+    loop {
+        let edge = &tile.get_left_edge();
+        dbg!(&edge);
+        let tile = &DTTileCore::from_edge(edge, garden_map);
+        dbg!(&tile);
+        let tile_count = tile.count_dt(garden_map, cmem);
+        dbg!(&tile_count);
+        if tile_count == 0 {
+            break;
+        }
+        count += tile_count;
+        if count > 1000 {
+            break;
+        }
+    }
+    count
+}
+
 pub fn run(input: &str, steps: usize) -> usize {
     let garden_map = input.parse::<GardenMap>().unwrap();
     let mut cmem = CountMem::new(garden_map.nrows as usize, steps);
@@ -532,6 +557,10 @@ pub fn run(input: &str, steps: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use crate::day_21::b::fast_expand;
+
+    use super::GardenMap;
+
     #[test]
     fn test1_dt() {
         let input = include_str!("example_data.txt");
@@ -549,6 +578,14 @@ mod tests {
     fn test3_dt() {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input, 50,), 1594);
+    }
+    #[test]
+    fn test3_fx() {
+        let input = include_str!("example_data.txt");
+        let garden_map = input.parse::<GardenMap>().unwrap();
+        let steps = 50;
+        let count = fast_expand(&garden_map, steps);
+        assert_eq!(count, 1594);
     }
     #[test]
     fn test4_dt() {
