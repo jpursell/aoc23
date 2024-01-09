@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, VecDeque},
     fmt::Display,
+    ops::Add,
     str::FromStr,
 };
 
@@ -95,6 +96,19 @@ struct DTTileCore {
     upper_right: usize,
     lower_left: usize,
     lower_right: usize,
+}
+
+impl Add<usize> for DTTileCore {
+    type Output = DTTileCore;
+    fn add(self, rhs: usize) -> Self::Output {
+        DTTileCore {
+            start: None,
+            upper_left: self.upper_left + rhs,
+            upper_right: self.upper_right + rhs,
+            lower_left: self.lower_left + rhs,
+            lower_right: self.lower_right + rhs,
+        }
+    }
 }
 
 impl Default for DTTileCore {
@@ -513,22 +527,50 @@ fn fast_expand(garden_map: &GardenMap, steps: usize) -> usize {
     let cmem = &mut CountMem::new(garden_map.nrows as usize, steps);
     let center = DTTileCore::from_point(garden_map, cmem);
     let mut count = center.count_dt(garden_map, cmem);
-    let tile = &center;
+    let mut test_count = count;
+
+    // todo move this to fast_expand_left function
+    {
+        // expand left center
+
+        // how many reps?
+        let max_left = center.lower_left.max(center.upper_left);
+        let ncols = garden_map.ncols as usize;
+        let min_steps = (steps - ncols - max_left) / ncols / 2;
+
+        let tile = if min_steps > 0 {
+            // get pattern
+            let tile0 = DTTileCore::from_edge(&center.get_left_edge(), garden_map);
+            let tile_count0 = tile0.count_dt(garden_map, cmem);
+            let tile1 = DTTileCore::from_edge(&tile0.get_left_edge(), garden_map);
+            let tile_count1 = tile1.count_dt(garden_map, cmem);
+
+            count += (tile_count0 + tile_count1) * min_steps;
+
+            // predict tile
+            tile1 + (ncols * 2 * min_steps - 1);
+        } else {
+            center
+        }
+
+        // todo finish remainder
+    }
+
+    // do things slow way to check
+    let mut tile = center;
     loop {
-        let edge = &tile.get_left_edge();
-        dbg!(&edge);
-        let tile = &DTTileCore::from_edge(edge, garden_map);
-        dbg!(&tile);
+        // get pattern
+        tile = DTTileCore::from_edge(&tile.get_left_edge(), garden_map);
         let tile_count = tile.count_dt(garden_map, cmem);
-        dbg!(&tile_count);
         if tile_count == 0 {
             break;
         }
-        count += tile_count;
-        if count > 1000 {
-            break;
-        }
+
+        test_count += tile_count;
+
+        break;
     }
+    assert_eq!(test_count, count);
     count
 }
 
@@ -606,5 +648,14 @@ mod tests {
     fn test7_dt() {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input, 5000,), 16733044);
+    }
+    #[test]
+    fn test7_fx() {
+        let input = include_str!("example_data.txt");
+        let garden_map = input.parse::<GardenMap>().unwrap();
+        let steps = 5000;
+        let output = fast_expand(&garden_map, steps);
+        assert_eq!(output, 18405); // just left expand
+                                   // assert_eq!(output, 16733044);
     }
 }
