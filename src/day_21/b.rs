@@ -279,7 +279,7 @@ impl CompositeDT {
         let mut right = vec![Edge::default(); self.right.len() + 2];
         let mut bottom = vec![Edge::default(); self.bottom.len() + 2];
         let mut count = self.count;
-        let debug = true;
+        let debug = false;
         self.top.iter().enumerate().for_each(|(i, old)| {
             let tile = DTTileCore::from_edge(old, garden_map);
             if debug {
@@ -370,7 +370,7 @@ impl CompositeDT {
     }
     fn new(garden_map: &GardenMap, steps: usize, cmem: &mut CountMem) -> CompositeDT {
         let center = DTTileCore::from_point(&garden_map.start, garden_map);
-        let debug = true;
+        let debug = false;
         if debug {
             println!("center {}", center.count_dt(steps, cmem));
             // center.print(garden_map);
@@ -465,7 +465,7 @@ pub fn run(input: &str, steps: usize) -> usize {
     let garden_map = input.parse::<GardenMap>().unwrap();
     let mut cmem = CountMem::new(garden_map.nrows as usize);
     let mut cdt = CompositeDT::new(&garden_map, steps, &mut cmem);
-    let debug = true;
+    let debug = false;
     if debug {
         println!("core count {}", cdt.count);
     }
