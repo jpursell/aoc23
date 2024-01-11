@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Display, str::FromStr};
+use std::{collections::BTreeMap, fmt::Display, ops::Add, str::FromStr};
 
 use ndarray::{s, Array1, Array2};
 
@@ -86,6 +86,16 @@ impl Default for Edge {
 
 struct DTTileCore {
     dt: Array2<usize>,
+}
+
+impl Add<usize> for DTTileCore {
+    type Output = DTTileCore;
+    fn add(self, rhs: usize) -> Self::Output {
+        let dt = self
+            .dt
+            .mapv(|x| if x == usize::MAX { usize::MAX } else { x + rhs });
+        DTTileCore { dt }
+    }
 }
 
 impl DTTileCore {
@@ -461,28 +471,155 @@ impl CountMem {
     }
 }
 
-pub fn run(input: &str, steps: usize) -> usize {
-    let garden_map = input.parse::<GardenMap>().unwrap();
-    let mut cmem = CountMem::new(garden_map.nrows as usize);
-    let mut cdt = CompositeDT::new(&garden_map, steps, &mut cmem);
-    let debug = false;
-    if debug {
-        println!("core count {}", cdt.count);
-    }
-    let mut rings = 0;
+fn fast_expand_edge(
+    edge: &Edge,
+    garden_map: &GardenMap,
+    steps: usize,
+    cmem: &mut CountMem,
+) -> usize {
+    let mut count = 0;
+
+    // how many reps?
+    let max_val = match edge {
+        Edge::Left(x) => x.iter().max().unwrap(),
+        Edge::Right(x) => x.iter().max().unwrap(),
+        Edge::Top(x) => x.iter().max().unwrap(),
+        Edge::Bottom(x) => x.iter().max().unwrap(),
+    };
+    let pattern_size = match edge {
+        Edge::Left(_) | Edge::Right(_) => garden_map.ncols as usize,
+        Edge::Top(_) | Edge::Bottom(_) => garden_map.nrows as usize,
+    };
+    let min_full_tile_pairs = if steps < (pattern_size + max_val) {
+        0
+    } else {
+        (steps - pattern_size - max_val) / pattern_size / 2
+    };
+
+    let get_edge = match edge {
+        Edge::Left(_) => |x: &DTTileCore| x.get_left_edge(),
+        Edge::Right(_) => |x: &DTTileCore| x.get_right_edge(),
+        Edge::Top(_) => |x: &DTTileCore| x.get_top_edge(),
+        Edge::Bottom(_) => |x: &DTTileCore| x.get_bottom_edge(),
+    };
+
+    let mut edge = if min_full_tile_pairs > 0 {
+        // get pattern
+        let tile0 = DTTileCore::from_edge(edge, garden_map);
+        let tile_count0 = tile0.count_dt(steps, cmem);
+        let tile1 = DTTileCore::from_edge(&get_edge(tile0), garden_map);
+        let tile_count1 = tile1.count_dt(steps, cmem);
+
+        count += (tile_count0 + tile_count1) * min_full_tile_pairs;
+
+        // predict edge
+        get_edge(tile1 + (pattern_size * 2 * (min_full_tile_pairs - 1)))
+    } else {
+        edge.clone()
+    };
+
     loop {
-        let new_cdt = cdt.expand(&garden_map, steps, &mut cmem);
-        if debug {
-            rings += 1;
-            println!("\nring {} count {}", rings, new_cdt.count);
-        }
-        if new_cdt.count == cdt.count {
+        let tile = DTTileCore::from_edge(&edge, garden_map);
+        edge = get_edge(tile);
+        let tile_count = tile.count_dt(steps, cmem);
+        if tile_count == 0 {
             break;
         }
-        cdt = new_cdt;
+        count += tile_count;
     }
-    cdt.count
+    count
 }
+
+fn fast_expand(garden_map: &GardenMap, steps: usize) -> usize {
+    let cmem = &mut CountMem::new(garden_map.nrows as usize);
+
+    // center
+    let center = DTTileCore::from_point(&garden_map.start, garden_map);
+    let mut count = center.count_dt(steps, cmem);
+    // let mut test_count = count;
+
+    // center cross
+    count += fast_expand_edge(&center.get_left_edge(), garden_map, steps, cmem);
+    count += fast_expand_edge(&center.get_right_edge(), garden_map, steps, cmem);
+    count += fast_expand_edge(&center.get_top_edge(), garden_map, steps, cmem);
+    count += fast_expand_edge(&center.get_bottom_edge(), garden_map, steps, cmem);
+
+    // corners
+    let mut top_left_tile = center;
+    let mut top_right_tile = center;
+    let mut bottom_right_tile = center;
+    let mut bottom_left_tile = center;
+
+    loop {
+        top_left_tile = {
+            let tile = DTTileCore::from_edge(&top_left_tile.get_left_edge(), garden_map);
+            DTTileCore::from_edge(&tile.get_top_edge(), garden_map)
+        };
+        top_right_tile = {
+            let tile = DTTileCore::from_edge(&top_right_tile.get_right_edge(), garden_map);
+            DTTileCore::from_edge(&tile.get_top_edge(), garden_map)
+        };
+        bottom_right_tile = {
+            let tile = DTTileCore::from_edge(&bottom_right_tile.get_right_edge(), garden_map);
+            DTTileCore::from_edge(&tile.get_bottom_edge(), garden_map)
+        };
+        bottom_left_tile = {
+            let tile = DTTileCore::from_edge(&bottom_left_tile.get_left_edge(), garden_map);
+            DTTileCore::from_edge(&tile.get_bottom_edge(), garden_map)
+        };
+        let prev_count = count;
+        count += top_left_tile.count_dt(steps, cmem);
+        count += top_right_tile.count_dt(steps, cmem);
+        count += bottom_right_tile.count_dt(steps, cmem);
+        count += bottom_left_tile.count_dt(steps, cmem);
+        if count == prev_count {
+            break;
+        }
+
+        count += fast_expand_edge(&top_left_tile.get_left_edge(), garden_map, steps, cmem);
+        count += fast_expand_edge(&top_left_tile.get_top_edge(), garden_map, steps, cmem);
+        count += fast_expand_edge(&top_right_tile.get_top_edge(), garden_map, steps, cmem);
+        count += fast_expand_edge(&top_right_tile.get_right_edge(), garden_map, steps, cmem);
+        count += fast_expand_edge(&bottom_right_tile.get_right_edge(), garden_map, steps, cmem);
+        count += fast_expand_edge(
+            &bottom_right_tile.get_bottom_edge(),
+            garden_map,
+            steps,
+            cmem,
+        );
+        count += fast_expand_edge(&bottom_left_tile.get_bottom_edge(), garden_map, steps, cmem);
+        count += fast_expand_edge(&bottom_left_tile.get_left_edge(), garden_map, steps, cmem);
+    }
+
+    count
+}
+pub fn run(input: &str, steps: usize) -> usize {
+    let garden_map = input.parse::<GardenMap>().unwrap();
+    fast_expand(&garden_map, steps)
+}
+
+// pub fn run(input: &str, steps: usize) -> usize {
+//     let garden_map = input.parse::<GardenMap>().unwrap();
+//     let mut cmem = CountMem::new(garden_map.nrows as usize);
+//     let mut cdt = CompositeDT::new(&garden_map, steps, &mut cmem);
+//     let debug = false;
+//     if debug {
+//         println!("core count {}", cdt.count);
+//     }
+//     let mut rings = 0;
+//     loop {
+//         let new_cdt = cdt.expand(&garden_map, steps, &mut cmem);
+//         if debug {
+//             rings += 1;
+//             println!("\nring {} count {}", rings, new_cdt.count);
+//         }
+//         if new_cdt.count == cdt.count {
+//             break;
+//         }
+//         cdt = new_cdt;
+//     }
+//     cdt.count
+// }
 
 #[cfg(test)]
 mod tests {
