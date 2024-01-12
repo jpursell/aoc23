@@ -63,7 +63,7 @@ impl FromStr for Bricks {
             .lines()
             .map(|line| line.parse::<Brick>().unwrap())
             .collect::<Vec<_>>();
-        Ok(Bricks { bricks })
+        Ok(Bricks::new(bricks))
     }
 }
 impl Display for Bricks {
@@ -76,6 +76,12 @@ impl Display for Bricks {
 }
 
 impl Bricks {
+    fn new(bricks: Vec<Brick>) ->Bricks{
+        let x_min = bricks[0].x[0];
+        let x_max = bricks[0].x[0];
+        todo!() 
+        // populate volume Array3<bool>
+    }
     /// Try to move a brick down from gravity. Return if something changed
     fn settle_a_brick(&mut self) -> bool {
         let mut changed = false;
@@ -106,6 +112,7 @@ impl Bricks {
         }
     }
 }
+
 pub fn run(input: &str) -> usize {
     let mut bricks = input.parse::<Bricks>().unwrap();
     bricks.settle_all();
