@@ -130,4 +130,9 @@ mod tests {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input, 6), 16);
     }
+    #[test]
+    fn test2() {
+        let input = include_str!("example_data.txt");
+        assert_eq!(super::run(input, 5), 13);
+    }
 }
