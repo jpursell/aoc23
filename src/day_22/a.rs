@@ -75,8 +75,40 @@ impl Display for Bricks {
     }
 }
 
+impl Bricks {
+    /// Try to move a brick down from gravity. Return if something changed
+    fn settle_a_brick(&mut self) -> bool {
+        let mut changed = false;
+        for i in 0..self.bricks.len() {
+            if self.can_settle(i) {
+                self.perform_settle(i);
+                changed = true;
+                break;
+            }
+        }
+        changed
+    }
+    /// Determin if brick at i can settle
+    fn can_settle(&self, i: usize) -> bool {
+        todo!()
+    }
+    /// Settle brick at i
+    fn perform_settle(&mut self, i: usize) -> bool {
+        todo!()
+    }
+    /// Keep settling bricks untill no more can settle
+    fn settle_all(&mut self) {
+        loop {
+            let changed = self.settle_a_brick();
+            if !changed {
+                break;
+            }
+        }
+    }
+}
 pub fn run(input: &str) -> usize {
-    let bricks = input.parse::<Bricks>().unwrap();
+    let mut bricks = input.parse::<Bricks>().unwrap();
+    bricks.settle_all();
     println!("{}", bricks);
     0
 }
