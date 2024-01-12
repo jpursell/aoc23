@@ -38,6 +38,7 @@ impl FromStr for Brick {
 }
 
 impl Display for Brick {
+    /// Print brick back out to match initial non-slice format
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -52,14 +53,31 @@ impl Display for Brick {
     }
 }
 
+struct Bricks {
+    bricks: Vec<Brick>,
+}
+impl FromStr for Bricks {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bricks = s
+            .lines()
+            .map(|line| line.parse::<Brick>().unwrap())
+            .collect::<Vec<_>>();
+        Ok(Bricks { bricks })
+    }
+}
+impl Display for Bricks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.bricks.iter().for_each(|brick| {
+            writeln!(f, "{}", brick).unwrap();
+        });
+        Ok(())
+    }
+}
+
 pub fn run(input: &str) -> usize {
-    let bricks = input
-        .lines()
-        .map(|line| line.parse::<Brick>().unwrap())
-        .collect::<Vec<_>>();
-    bricks.iter().for_each(|brick| {
-        println!("{}", brick);
-    });
+    let bricks = input.parse::<Bricks>().unwrap();
+    println!("{}", bricks);
     0
 }
 
