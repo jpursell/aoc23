@@ -1,4 +1,8 @@
-use std::{collections::BTreeSet, fmt::Display, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+    str::FromStr,
+};
 
 use ndarray::{s, Array3, Dim, SliceInfo, SliceInfoElem};
 
@@ -243,22 +247,59 @@ impl Bricks {
     }
     /// For each brick, count the number of bricks that would fall it
     /// it were removed including the chain reaction. Return total.
-    fn count_b(&self) -> u16 {
-        let mut esential = BTreeSet::new();
+    fn count_b(&self) -> usize {
+        let mut supports = BTreeMap::new();
+        let mut supported_by = BTreeMap::new();
         for b in &self.bricks {
             if let Ok(drop_rim) = b.drop_bottom_rim(1) {
                 let lower_ids = self
                     .has_brick
                     .slice(drop_rim.slice())
                     .into_iter()
-                    .filter(|x| **x > 0)
+                    .map(|x| *x)
+                    .filter(|x| *x > 0)
                     .collect::<BTreeSet<_>>();
-                if lower_ids.len() == 1 {
-                    esential.insert(lower_ids);
+                supported_by.insert(b.id, lower_ids.clone());
+                for id in lower_ids.clone() {
+                    if !supports.contains_key(&id) {
+                        supports.insert(id, BTreeSet::new());
+                    }
+                    let set = supports.get_mut(&id).unwrap();
+                    set.insert(b.id);
                 }
             }
         }
-        u16::try_from(self.bricks.len() - esential.len()).unwrap()
+        let mut count = 0;
+        for b in &self.bricks {
+            let mut removed = BTreeSet::new();
+            removed.insert(b.id);
+            loop {
+                let mut newly_removed = BTreeSet::new();
+                for removed_id in &removed {
+                    if let Some(endangered) = supports.get(&removed_id) {
+                        for endangered_id in endangered {
+                            if removed.contains(endangered_id)
+                                | newly_removed.contains(endangered_id)
+                            {
+                                continue;
+                            }
+                            if let Some(support) = supported_by.get(endangered_id) {
+                                if support.difference(&removed).count() == 0 {
+                                    newly_removed.insert(*endangered_id);
+                                }
+                            }
+                        }
+                    }
+                }
+                if newly_removed.is_empty() {
+                    break;
+                } else {
+                    removed.append(&mut newly_removed);
+                }
+            }
+            count += removed.len() - 1;
+        }
+        count
     }
 }
 
