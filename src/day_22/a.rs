@@ -18,14 +18,14 @@ impl PartialOrd for Brick {
         Some(self.cmp(other))
     }
 }
-impl Eq for Brick { }
+impl Eq for Brick {}
 impl Ord for Brick {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.z[0].cmp(&other.z[0])
     }
 }
 impl Brick {
-    fn new(mut x: [u16; 2], mut y: [u16; 2], mut z: [u16; 2], id:u16) -> Brick {
+    fn new(mut x: [u16; 2], mut y: [u16; 2], mut z: [u16; 2], id: u16) -> Brick {
         if x[0] > x[1] {
             x.swap(0, 1);
         }
@@ -35,7 +35,7 @@ impl Brick {
         if z[0] > z[1] {
             z.swap(0, 1);
         }
-        Brick { x, y, z , id}
+        Brick { x, y, z, id }
     }
     fn slice(&self) -> SliceInfo<[SliceInfoElem; 3], Dim<[usize; 3]>, Dim<[usize; 3]>> {
         s![
@@ -118,7 +118,7 @@ impl FromStr for Brick {
                     [start[0], end[0] + 1],
                     [start[1], end[1] + 1],
                     [start[2], end[2] + 1],
-                    0
+                    0,
                 ))
             }
         }
@@ -167,6 +167,9 @@ impl Display for Bricks {
 impl Bricks {
     fn new(mut bricks: Vec<Brick>) -> Bricks {
         bricks.sort();
+        bricks.iter_mut().enumerate().for_each(|(i, b)| {
+            b.id = u16::try_from(i + 1).unwrap();
+        });
         let x_min = bricks.iter().map(|b| b.x[0]).min().unwrap();
         let y_min = bricks.iter().map(|b| b.y[0]).min().unwrap();
         let x_max = bricks.iter().map(|b| b.x[1]).max().unwrap();
@@ -175,10 +178,10 @@ impl Bricks {
         let nx = x_max - x_min;
         let ny = y_max - y_min;
         let nz = z_max;
-        let mut has_brick = Array3::from_elem([nx as usize, ny as usize, nz as usize], false);
+        let mut has_brick = Array3::from_elem([nx as usize, ny as usize, nz as usize], 0);
         bricks.iter().for_each(|b| {
             has_brick.slice_mut(b.slice()).map_inplace(|x| {
-                *x = true;
+                *x = b.id;
             })
         });
         Bricks { bricks, has_brick }
@@ -198,7 +201,10 @@ impl Bricks {
     /// Determin if brick at i can settle
     fn can_settle(&self, i: usize, amount: u16) -> bool {
         if let Ok(dropped) = self.bricks[i].drop_bottom_rim(amount) {
-            self.has_brick.slice(dropped.slice()).iter().all(|x| !*x)
+            self.has_brick
+                .slice(dropped.slice())
+                .iter()
+                .all(|x| *x == 0)
         } else {
             false
         }
@@ -216,12 +222,12 @@ impl Bricks {
         self.has_brick
             .slice_mut(self.bricks[i].drop_top(amount).unwrap().slice())
             .map_inplace(|x| {
-                *x = false;
+                *x = 0;
             });
         self.has_brick
             .slice_mut(self.bricks[i].drop_bottom(amount).unwrap().slice())
             .map_inplace(|x| {
-                *x = true;
+                *x = self.bricks[i].id;
             });
         *self.bricks.get_mut(i).unwrap() = self.bricks[i].drop(amount).unwrap();
         self.bricks.sort();
@@ -235,7 +241,6 @@ impl Bricks {
             }
         }
     }
-
 }
 
 pub fn run(input: &str) -> usize {
