@@ -6,6 +6,7 @@ struct Brick {
     x: [u16; 2],
     y: [u16; 2],
     z: [u16; 2],
+    id: u16,
 }
 impl PartialEq for Brick {
     fn eq(&self, other: &Self) -> bool {
@@ -24,7 +25,7 @@ impl Ord for Brick {
     }
 }
 impl Brick {
-    fn new(mut x: [u16; 2], mut y: [u16; 2], mut z: [u16; 2]) -> Brick {
+    fn new(mut x: [u16; 2], mut y: [u16; 2], mut z: [u16; 2], id:u16) -> Brick {
         if x[0] > x[1] {
             x.swap(0, 1);
         }
@@ -34,7 +35,7 @@ impl Brick {
         if z[0] > z[1] {
             z.swap(0, 1);
         }
-        Brick { x, y, z }
+        Brick { x, y, z , id}
     }
     fn slice(&self) -> SliceInfo<[SliceInfoElem; 3], Dim<[usize; 3]>, Dim<[usize; 3]>> {
         s![
@@ -51,7 +52,7 @@ impl Brick {
             let x = self.x;
             let y = self.y;
             let z = [self.z[0] - amount, self.z[1] - amount];
-            Ok(Brick::new(x, y, z))
+            Ok(Brick::new(x, y, z, self.id))
         }
     }
     /// Return new brick with lower z value and a height of 1
@@ -62,7 +63,7 @@ impl Brick {
             let x = self.x;
             let y = self.y;
             let z = [self.z[0] - amount, self.z[0] - amount + 1];
-            Ok(Brick::new(x, y, z))
+            Ok(Brick::new(x, y, z, self.id))
         }
     }
     /// Return new brick with lower z value that does not overlap
@@ -74,7 +75,7 @@ impl Brick {
             let x = self.x;
             let y = self.y;
             let z = [self.z[0] - amount, self.z[0] - amount + height];
-            Ok(Brick::new(x, y, z))
+            Ok(Brick::new(x, y, z, self.id))
         }
     }
     /// Return new brick that is remainder of self minus drop bottom
@@ -87,7 +88,7 @@ impl Brick {
             let x = self.x;
             let y = self.y;
             let z = [self.z[1] - height, self.z[1]];
-            Ok(Brick::new(x, y, z))
+            Ok(Brick::new(x, y, z, self.id))
         }
     }
 }
@@ -117,6 +118,7 @@ impl FromStr for Brick {
                     [start[0], end[0] + 1],
                     [start[1], end[1] + 1],
                     [start[2], end[2] + 1],
+                    0
                 ))
             }
         }
@@ -141,7 +143,7 @@ impl Display for Brick {
 
 struct Bricks {
     bricks: Vec<Brick>,
-    has_brick: Array3<bool>,
+    has_brick: Array3<u16>,
 }
 impl FromStr for Bricks {
     type Err = &'static str;
@@ -233,6 +235,7 @@ impl Bricks {
             }
         }
     }
+
 }
 
 pub fn run(input: &str) -> usize {
