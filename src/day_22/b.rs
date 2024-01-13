@@ -241,8 +241,9 @@ impl Bricks {
             }
         }
     }
-    /// Return number of bricks that, if removed, would not destabilize the stack
-    fn count_non_esential(&self) -> u16 {
+    /// For each brick, count the number of bricks that would fall it
+    /// it were removed including the chain reaction. Return total.
+    fn count_b(&self) -> u16 {
         let mut esential = BTreeSet::new();
         for b in &self.bricks {
             if let Ok(drop_rim) = b.drop_bottom_rim(1) {
@@ -264,7 +265,7 @@ impl Bricks {
 pub fn run(input: &str) -> usize {
     let mut bricks = input.parse::<Bricks>().unwrap();
     bricks.settle_all();
-    bricks.count_non_esential() as usize
+    bricks.count_b() as usize
 }
 
 #[cfg(test)]
