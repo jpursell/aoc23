@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::{collections::BTreeSet, fmt::Display, str::FromStr};
 
 use ndarray::{s, Array3, Dim, SliceInfo, SliceInfoElem};
 
@@ -241,13 +241,30 @@ impl Bricks {
             }
         }
     }
+    /// Return number of bricks that, if removed, would not destabilize the stack
+    fn count_non_esential(&self) -> u16 {
+        let mut esential = BTreeSet::new();
+        for b in &self.bricks {
+            if let Ok(drop_rim) = b.drop_bottom_rim(1) {
+                let lower_ids = self
+                    .has_brick
+                    .slice(drop_rim.slice())
+                    .into_iter()
+                    .filter(|x| **x > 0)
+                    .collect::<BTreeSet<_>>();
+                if lower_ids.len() == 1 {
+                    esential.insert(lower_ids);
+                }
+            }
+        }
+        u16::try_from(self.bricks.len() - esential.len()).unwrap()
+    }
 }
 
 pub fn run(input: &str) -> usize {
     let mut bricks = input.parse::<Bricks>().unwrap();
     bricks.settle_all();
-    println!("{}", bricks);
-    0
+    bricks.count_non_esential() as usize
 }
 
 #[cfg(test)]
