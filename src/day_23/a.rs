@@ -1,4 +1,8 @@
-use std::{collections::BTreeSet, fmt::Display, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+    str::FromStr,
+};
 
 use ndarray::{s, Array2};
 
@@ -346,10 +350,48 @@ impl Display for Graph {
     }
 }
 
+impl Graph {
+    fn find_longest_path(&self) -> usize {
+        let mut edge_map = BTreeMap::new();
+        for edge in &self.edges {
+            if !edge_map.contains_key(&edge.start) {
+                edge_map.insert(edge.start, Vec::new());
+            }
+            edge_map.get_mut(&edge.start).unwrap().push(edge);
+        }
+        let mut visited = BTreeSet::new();
+        let current = &self.nodes[0];
+        visited.insert(*current);
+        self.longest_path(current, &mut visited, &edge_map, 0)
+    }
+    fn longest_path(
+        &self,
+        current: &Node,
+        visited: &mut BTreeSet<Node>,
+        edge_map: &BTreeMap<Node, Vec<&Edge>>,
+        weight: usize,
+    ) -> usize {
+        let mut max_weight = 0;
+        for edge in &edge_map[current] {
+            if visited.contains(&edge.end) {
+                continue;
+            }
+            if edge.end == *self.nodes.last().unwrap() {
+                return weight + edge.weight;
+            }
+            visited.insert(edge.end);
+            let new_weight = self.longest_path(&edge.end, visited, edge_map, weight + edge.weight);
+            max_weight = max_weight.max(new_weight);
+            visited.remove(&edge.end);
+        }
+        max_weight
+    }
+}
+
 pub fn run(input: &str) -> usize {
     let graph = input.parse::<Graph>().unwrap();
-    println!("{}", graph);
-    0
+    // println!("{}", graph);
+    graph.find_longest_path()
 }
 
 #[cfg(test)]
