@@ -82,6 +82,9 @@ impl Edge {
     fn new(start: Node, end: Node, weight: usize) -> Edge {
         Edge { start, end, weight }
     }
+    fn reverse(&self) -> Edge {
+        Edge::new(self.end, self.start, self.weight)
+    }
 }
 impl Display for Edge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -322,15 +325,19 @@ impl FromStr for Graph {
                 let fd = FourDirections::new(&map, node.row(), node.col(), None).unwrap();
                 if fd.up.is_some() && fd.up.unwrap() == MapSymbol::Up {
                     edges.push(trace_edge(&map, &node_set, &fd.position, &Direction::Up));
+                    edges.push(edges.last().unwrap().reverse());
                 }
                 if fd.down.is_some() && fd.down.unwrap() == MapSymbol::Down {
                     edges.push(trace_edge(&map, &node_set, &fd.position, &Direction::Down));
+                    edges.push(edges.last().unwrap().reverse());
                 }
                 if fd.left.is_some() && fd.left.unwrap() == MapSymbol::Left {
                     edges.push(trace_edge(&map, &node_set, &fd.position, &Direction::Left));
+                    edges.push(edges.last().unwrap().reverse());
                 }
                 if fd.right.is_some() && fd.right.unwrap() == MapSymbol::Right {
                     edges.push(trace_edge(&map, &node_set, &fd.position, &Direction::Right));
+                    edges.push(edges.last().unwrap().reverse());
                 }
             }
         }
