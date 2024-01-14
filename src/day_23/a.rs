@@ -219,7 +219,6 @@ impl FourDirections {
         {
             next_fd.direction = Some(Direction::Right);
         }
-        assert!(next_fd.direction.is_some());
         next_fd
     }
 }
@@ -318,36 +317,16 @@ impl FromStr for Graph {
             for node in &nodes[1..nodes.len() - 1] {
                 let fd = FourDirections::new(&map, node.row(), node.col(), None).unwrap();
                 if fd.up.is_some() && fd.up.unwrap() == MapSymbol::Up {
-                    edges.push(trace_edge(
-                        &map,
-                        &node_set,
-                        &fd.position,
-                        &Direction::Up,
-                    ));
+                    edges.push(trace_edge(&map, &node_set, &fd.position, &Direction::Up));
                 }
                 if fd.down.is_some() && fd.down.unwrap() == MapSymbol::Down {
-                    edges.push(trace_edge(
-                        &map,
-                        &node_set,
-                        &fd.position,
-                        &Direction::Down,
-                    ));
+                    edges.push(trace_edge(&map, &node_set, &fd.position, &Direction::Down));
                 }
                 if fd.left.is_some() && fd.left.unwrap() == MapSymbol::Left {
-                    edges.push(trace_edge(
-                        &map,
-                        &node_set,
-                        &fd.position,
-                        &Direction::Left,
-                    ));
+                    edges.push(trace_edge(&map, &node_set, &fd.position, &Direction::Left));
                 }
                 if fd.right.is_some() && fd.right.unwrap() == MapSymbol::Right {
-                    edges.push(trace_edge(
-                        &map,
-                        &node_set,
-                        &fd.position,
-                        &Direction::Right,
-                    ));
+                    edges.push(trace_edge(&map, &node_set, &fd.position, &Direction::Right));
                 }
             }
         }
