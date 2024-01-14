@@ -125,8 +125,13 @@ impl TryFrom<InitialCondition> for Line {
         Ok(Line::new(m, b))
     }
 }
-fn find_intersection(a: &Line, b: &Line) -> Option<[f64; 2]> {
-    if a.m == b.m {
+fn find_intersection(
+    a_cond: &InitialCondition,
+    a_line: &Line,
+    b_cond: &InitialCondition,
+    b_line: &Line,
+) -> Option<[f64; 2]> {
+    if a_line.m == b_line.m {
         return None;
     }
     // y = mx + b
@@ -134,8 +139,15 @@ fn find_intersection(a: &Line, b: &Line) -> Option<[f64; 2]> {
     // m0 * x - m1 * x = b1 - b0
     // x (m0 - m1) = b1 - b0
     // x = (b1 - b0) / (m0 - m1)
-    let x = (b.b - a.b) / (a.m - b.m);
-    let y_a = a.m * x + a.b;
+    let x = (b_line.b - a_line.b) / (a_line.m - b_line.m);
+    // x = pos_x + vel_x * t
+    // t = (x - pos_x) / vel_x
+    let t_a = (x - a_cond.position.vec[0] as f64) / a_cond.velocity.vec[0] as f64;
+    let t_b = (x - b_cond.position.vec[0] as f64) / b_cond.velocity.vec[0] as f64;
+    if t_a < 0.0 || t_b < 0.0 {
+        return None;
+    }
+    let y_a = a_line.m * x + a_line.b;
     // let y_b = b.m * x + b.b;
     // assert_eq!(y_a, y_b);
     Some([x, y_a])
@@ -159,7 +171,12 @@ impl HailCloud {
         let mut count = 0;
         for i in 0..self.stones.len() {
             for j in i + 1..self.stones.len() {
-                let intersection = find_intersection(&self.stone_lines[i], &self.stone_lines[j]);
+                let intersection = find_intersection(
+                    &self.stones[i],
+                    &self.stone_lines[i],
+                    &self.stones[j],
+                    &self.stone_lines[j],
+                );
                 if intersection.is_none() {
                     continue;
                 }
