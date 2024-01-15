@@ -180,17 +180,17 @@ impl HailCloud {
                 if intersection.is_none() {
                     continue;
                 }
-                println!(
-                    "\nintersect\n\t{}\n\t{}\n\t{:?}",
-                    self.stones[i], self.stones[j], intersection
-                );
+                // println!(
+                //     "\nintersect\n\t{}\n\t{}\n\t{:?}",
+                //     self.stones[i], self.stones[j], intersection
+                // );
                 let intersection = intersection.unwrap();
                 if intersection[0] >= min_test
                     && intersection[0] <= max_test
                     && intersection[1] >= min_test
                     && intersection[1] <= max_test
                 {
-                    println!("inside");
+                    // println!("inside");
                     count += 1;
                 }
             }
@@ -218,7 +218,7 @@ impl Display for HailCloud {
 }
 pub fn run(input: &str, min_test: f64, max_test: f64) -> usize {
     let hail = input.parse::<HailCloud>().unwrap();
-    println!("{}", hail);
+    // println!("{}", hail);
     hail.count_intersections_in_test_area(min_test, max_test)
 }
 
