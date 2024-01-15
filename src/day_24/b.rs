@@ -142,6 +142,7 @@ impl HailCloud {
     /// Solve for rock that will pass through all hail positions
     /// and return sum of initial position coords
     fn run(&self) -> i64 {
+        // todo switch to growing out tmax
         // tmax was set to 1000 and no solution was found
         let tmax = 10;
         for t0 in 1..tmax {
@@ -157,6 +158,7 @@ impl HailCloud {
                         }
                         let rock = rock.unwrap();
                         if self.verify_rock(i, j, &rock) {
+                            println!("solution: {}", rock);
                             return rock.position_sum();
                         }
                     }
