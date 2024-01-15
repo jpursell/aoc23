@@ -8,6 +8,9 @@ impl Position {
     fn new(vec: [usize; 3]) -> Position {
         Position { vec }
     }
+    fn sum(&self) -> usize {
+        self.vec.iter().sum()
+    }
 }
 impl Display for Position {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -64,6 +67,9 @@ impl InitialCondition {
     fn new(position: Position, velocity: Velocity) -> InitialCondition {
         InitialCondition { position, velocity }
     }
+    fn position_sum(&self) -> usize {
+        self.position.sum()
+    }
 }
 impl FromStr for InitialCondition {
     type Err = ();
@@ -80,14 +86,41 @@ impl Display for InitialCondition {
         write!(f, "{} @ {}", self.position, self.velocity)
     }
 }
+/// Return rock InitialConfition that will intersect both stones at given times
+fn solve_rock(t0:usize, t1:usize, stone0:&InitialCondition, stone1:&InitialCondition) -> InitialCondition {
+    todo!()
+}
 struct HailCloud {
     stones: Vec<InitialCondition>,
 }
 impl HailCloud {
     fn new(stones: Vec<InitialCondition>) -> HailCloud {
-        HailCloud {
-            stones,
+        HailCloud { stones }
+    }
+    /// Solve for rock that will pass through all hail positions
+    /// and return sum of initial position coords
+    fn run(&self) -> usize {
+        let tmax = 10;
+        for t0 in 1..tmax {
+            for t1 in (t0 + 1)..tmax {
+                for i in 0..self.stones.len() {
+                    for j in 0..self.stones.len() {
+                        if j == i {
+                            continue;
+                        }
+                        let rock = solve_rock(t0, t1, &self.stones[i], &self.stones[j]);
+                        if self.verify_rock(i, j, &rock) {
+                            return rock.position_sum();
+                        }
+                    }
+                }
+            }
         }
+        panic!("Failed to solve");
+    }
+    /// Return true if rock intersects all stones. Assume stones at i and j are already checked
+    fn verify_rock(&self, i:usize, j: usize, rock: &InitialCondition) -> bool {
+        todo!()
     }
 }
 impl FromStr for HailCloud {
@@ -111,7 +144,7 @@ impl Display for HailCloud {
 pub fn run(input: &str) -> usize {
     let hail = input.parse::<HailCloud>().unwrap();
     println!("{}", hail);
-    0
+    hail.run()
 }
 
 #[cfg(test)]
