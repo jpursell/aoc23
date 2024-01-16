@@ -1,4 +1,6 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, str::FromStr, time::Instant};
+
+use rayon::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 struct Position {
@@ -35,9 +37,9 @@ struct Velocity {
 }
 impl Velocity {
     fn new(vec: [i64; 3]) -> Velocity {
-        vec.iter().for_each(|x| {
-            assert_ne!(*x, 0);
-        });
+        // vec.iter().for_each(|x| {
+        //     assert_ne!(*x, 0);
+        // });
         Velocity { vec }
     }
 }
@@ -139,33 +141,57 @@ impl HailCloud {
     fn new(stones: Vec<InitialCondition>) -> HailCloud {
         HailCloud { stones }
     }
+
     /// Solve for rock that will pass through all hail positions
     /// and return sum of initial position coords
     fn run(&self) -> i64 {
-        // todo switch to growing out tmax
-        // tmax was set to 1000 and no solution was found
-        let tmax = 10;
-        for t0 in 1..tmax {
-            for t1 in (t0 + 1)..tmax {
-                for i in 0..self.stones.len() {
-                    for j in 0..self.stones.len() {
-                        if j == i {
-                            continue;
-                        }
-                        let rock = solve_rock(t0, t1, &self.stones[i], &self.stones[j]);
-                        if rock.is_err() {
-                            continue;
-                        }
-                        let rock = rock.unwrap();
-                        if self.verify_rock(i, j, &rock) {
-                            println!("solution: {}", rock);
-                            return rock.position_sum();
-                        }
-                    }
+        // todo: this is never going to work the second collision time might be something like 1e11
+        //       maybe we can assume a velocity, first collision time, first stone to cloide with,
+        //       then solve for the initial position and check the solution
+        let mut t1 = 0;
+        let start = Instant::now();
+        let mut last = start;
+        loop {
+            t1 += 1;
+            if last.elapsed().as_secs() > 5 {
+                println!("{} t1: {}", start.elapsed().as_secs_f32(), t1);
+                last = Instant::now();
+            }
+            if let Some(rock) = self.check_tmax(t1) {
+                println!("solution: {}", rock);
+                return rock.position_sum();
+            }
+        }
+    }
+    fn check_tmax(&self, t1: usize) -> Option<InitialCondition> {
+        let rock = (0..t1)
+            .into_par_iter()
+            .map(|t0| self.check_times(t0, t1))
+            .filter(|rock| rock.is_some())
+            .collect::<Vec<_>>();
+        match rock.len() {
+            0 => None,
+            1 => rock[0],
+            _ => panic!(),
+        }
+    }
+    fn check_times(&self, t0: usize, t1: usize) -> Option<InitialCondition> {
+        for i in 0..self.stones.len() {
+            for j in 0..self.stones.len() {
+                if j == i {
+                    continue;
+                }
+                let rock = solve_rock(t0, t1, &self.stones[i], &self.stones[j]);
+                if rock.is_err() {
+                    continue;
+                }
+                let rock = rock.unwrap();
+                if self.verify_rock(i, j, &rock) {
+                    return Some(rock);
                 }
             }
         }
-        panic!("Failed to solve");
+        None
     }
     /// Return true if rock intersects all stones. Assume stones at i and j are already checked
     fn verify_rock(&self, i: usize, j: usize, rock: &InitialCondition) -> bool {
