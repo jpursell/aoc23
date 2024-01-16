@@ -1,5 +1,9 @@
 use std::{fmt::Display, str::FromStr, time::Instant};
 
+use itertools::Itertools;
+
+use rayon::prelude::*;
+
 #[derive(Debug, Clone, Copy)]
 struct Position {
     vec: [i64; 3],
@@ -87,18 +91,18 @@ impl Display for InitialCondition {
     }
 }
 /// Return rock InitialConfition that will intersect both stones at given times
-fn solve_rock(stone0: &InitialCondition, vel: &Velocity) -> InitialCondition {
+fn solve_rock(t0: usize, stone0: &InitialCondition, vel: &Velocity) -> InitialCondition {
     let p0 = stone0
         .position
         .vec
         .iter()
         .zip(stone0.velocity.vec.iter())
-        .map(|(&p, &v)| p + v as i64)
+        .map(|(&p, &v)| p + v * t0 as i64)
         .collect::<Vec<_>>();
     let pos = p0
         .iter()
         .zip(vel.vec.iter())
-        .map(|(&p, &v)| p - v as i64)
+        .map(|(&p, &v)| p - v * t0 as i64)
         .collect::<Vec<_>>();
     let pos = Position::new([pos[0], pos[1], pos[2]]);
     InitialCondition::new(pos, vel.clone())
@@ -130,91 +134,65 @@ impl HailCloud {
         }
     }
     fn check_maxv(&self, maxv: i64) -> Option<InitialCondition> {
-        {
-            let vx = maxv;
-            for vy in -maxv..maxv {
-                for vz in -maxv..maxv {
-                    for i in 0..self.stones.len() {
-                        let v = Velocity::new([vx, vy, vz]);
-                        let rock = solve_rock(&self.stones[i], &v);
-                        if self.verify_rock(i, &rock) {
-                            return Some(rock);
-                        }
-                    }
+        let max_x = (-maxv..maxv)
+            .cartesian_product(-maxv..maxv)
+            .cartesian_product(0..maxv)
+            .cartesian_product(0..self.stones.len())
+            .map(|(((vy, vz), t0), i)| (maxv, vy, vz, t0, i));
+        let min_x = (-maxv..maxv)
+            .cartesian_product(-maxv..maxv)
+            .cartesian_product(0..maxv)
+            .cartesian_product(0..self.stones.len())
+            .map(|(((vy, vz), t0), i)| (-maxv, vy, vz, t0, i));
+        let max_y = (-maxv..maxv)
+            .cartesian_product(-maxv..maxv)
+            .cartesian_product(0..maxv)
+            .cartesian_product(0..self.stones.len())
+            .map(|(((vx, vz), t0), i)| (vx, maxv, vz, t0, i));
+        let min_y = (-maxv..maxv)
+            .cartesian_product(-maxv..maxv)
+            .cartesian_product(0..maxv)
+            .cartesian_product(0..self.stones.len())
+            .map(|(((vx, vz), t0), i)| (vx, -maxv, vz, t0, i));
+        let max_z = (-maxv..maxv)
+            .cartesian_product(-maxv..maxv)
+            .cartesian_product(0..maxv)
+            .cartesian_product(0..self.stones.len())
+            .map(|(((vx, vy), t0), i)| (vx, vy, maxv, t0, i));
+        let min_z = (-maxv..maxv)
+            .cartesian_product(-maxv..maxv)
+            .cartesian_product(0..maxv)
+            .cartesian_product(0..self.stones.len())
+            .map(|(((vx, vy), t0), i)| (vx, vy, -maxv, t0, i));
+        let max_t = (-maxv..maxv)
+            .cartesian_product(-maxv..maxv)
+            .cartesian_product(-maxv..maxv)
+            .cartesian_product(0..self.stones.len())
+            .map(|(((vx, vy), vz), i)| (vx, vy, vz, maxv, i));
+        let rock = max_x
+            .chain(min_x)
+            .chain(max_y)
+            .chain(min_y)
+            .chain(max_z)
+            .chain(min_z)
+            .chain(max_t)
+            .par_bridge()
+            .map(|(vx, vy, vz, t0, i)| {
+                let v = Velocity::new([vx, vy, vz]);
+                let rock = solve_rock(t0 as usize, &self.stones[i], &v);
+                if self.verify_rock(i, &rock) {
+                    Some(rock)
+                } else {
+                    None
                 }
-            }
+            })
+            .filter(|x| x.is_some())
+            .collect::<Vec<_>>();
+        if rock.is_empty() {
+            None
+        } else {
+            rock[0]
         }
-        {
-            let vx = -maxv;
-            for vy in -maxv..maxv {
-                for vz in -maxv..maxv {
-                    for i in 0..self.stones.len() {
-                        let v = Velocity::new([vx, vy, vz]);
-                        let rock = solve_rock(&self.stones[i], &v);
-                        if self.verify_rock(i, &rock) {
-                            return Some(rock);
-                        }
-                    }
-                }
-            }
-        }
-        {
-            let vy = maxv;
-            for vx in -maxv..maxv {
-                for vz in -maxv..maxv {
-                    for i in 0..self.stones.len() {
-                        let v = Velocity::new([vx, vy, vz]);
-                        let rock = solve_rock(&self.stones[i], &v);
-                        if self.verify_rock(i, &rock) {
-                            return Some(rock);
-                        }
-                    }
-                }
-            }
-        }
-        {
-            let vy = -maxv;
-            for vx in -maxv..maxv {
-                for vz in -maxv..maxv {
-                    for i in 0..self.stones.len() {
-                        let v = Velocity::new([vx, vy, vz]);
-                        let rock = solve_rock(&self.stones[i], &v);
-                        if self.verify_rock(i, &rock) {
-                            return Some(rock);
-                        }
-                    }
-                }
-            }
-        }
-        {
-            let vz = maxv;
-            for vx in -maxv..maxv {
-                for vy in -maxv..maxv {
-                    for i in 0..self.stones.len() {
-                        let v = Velocity::new([vx, vy, vz]);
-                        let rock = solve_rock(&self.stones[i], &v);
-                        if self.verify_rock(i, &rock) {
-                            return Some(rock);
-                        }
-                    }
-                }
-            }
-        }
-        {
-            let vz = -maxv;
-            for vx in -maxv..maxv {
-                for vy in -maxv..maxv {
-                    for i in 0..self.stones.len() {
-                        let v = Velocity::new([vx, vy, vz]);
-                        let rock = solve_rock(&self.stones[i], &v);
-                        if self.verify_rock(i, &rock) {
-                            return Some(rock);
-                        }
-                    }
-                }
-            }
-        }
-        None
     }
     /// Return true if rock intersects all stones. Assume stones at i and j are already checked
     fn verify_rock(&self, i: usize, rock: &InitialCondition) -> bool {
