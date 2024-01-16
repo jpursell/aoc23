@@ -89,50 +89,21 @@ impl Display for InitialCondition {
     }
 }
 /// Return rock InitialConfition that will intersect both stones at given times
-fn solve_rock(
-    t0: usize,
-    t1: usize,
-    stone0: &InitialCondition,
-    stone1: &InitialCondition,
-) -> Result<InitialCondition, ()> {
+fn solve_rock(t0: usize, stone0: &InitialCondition, vel: &Velocity) -> InitialCondition {
     let p0 = stone0
         .position
         .vec
         .iter()
         .zip(stone0.velocity.vec.iter())
-        .map(|(p, v)| *p as i64 + *v as i64 * t0 as i64)
+        .map(|(&p, &v)| p + v * t0 as i64)
         .collect::<Vec<_>>();
-    let p1 = stone1
-        .position
-        .vec
-        .iter()
-        .zip(stone1.velocity.vec.iter())
-        .map(|(p, v)| *p as i64 + *v as i64 * t1 as i64)
-        .collect::<Vec<_>>();
-    let dt = (t1 - t0) as i64;
-    let v = p1
-        .iter()
-        .zip(p0.iter())
-        .map(|(pp1, pp0)| (pp1 - pp0) / dt)
-        .collect::<Vec<_>>();
-    // predict p1 from p0, v, and dt to make sure exact
-    for i in 0..3 {
-        if p1[i] != p0[i] + dt * v[i] {
-            return Err(());
-        }
-    }
     let pos = p0
         .iter()
-        .zip(v.iter())
-        .map(|(&pp0, &pv)| pp0 - t0 as i64 * pv)
-        .collect::<Vec<_>>();
-    let pos = pos
-        .iter()
-        .map(|x| i64::try_from(*x).unwrap())
+        .zip(vel.vec.iter())
+        .map(|(&p, &v)| p - v * t0 as i64)
         .collect::<Vec<_>>();
     let pos = Position::new([pos[0], pos[1], pos[2]]);
-    let v = Velocity::new([v[0], v[1], v[2]]);
-    Ok(InitialCondition::new(pos, v))
+    InitialCondition::new(pos, vel.clone())
 }
 struct HailCloud {
     stones: Vec<InitialCondition>,
@@ -144,30 +115,26 @@ impl HailCloud {
 
     /// Solve for rock that will pass through all hail positions
     /// and return sum of initial position coords
-    fn run(&self) -> i64 {
-        // todo: this is never going to work the second collision time might be something like 1e11
-        //       maybe we can assume a velocity, first collision time, first stone to cloide with,
-        //       then solve for the initial position and check the solution
-        let mut t1 = 0;
+    fn run(&self, maxv:i64) -> i64 {
         let start = Instant::now();
         let mut last = start;
-        loop {
-            t1 += 1;
+        for vx in -maxv..maxv {
             if last.elapsed().as_secs() > 5 {
-                println!("{} t1: {}", start.elapsed().as_secs_f32(), t1);
+                println!("{} vx: {}", start.elapsed().as_secs_f32(), vx);
                 last = Instant::now();
             }
-            if let Some(rock) = self.check_tmax(t1) {
-                println!("solution: {}", rock);
+            if let Some(rock) = self.check_vx(vx, maxv) {
+                println!("rock: {}", rock);
                 return rock.position_sum();
             }
         }
+        panic!("no solution found");
     }
-    fn check_tmax(&self, t1: usize) -> Option<InitialCondition> {
-        let rock = (0..t1)
+    fn check_vx(&self, vx: i64, maxv:i64) -> Option<InitialCondition> {
+        let rock = (-maxv..maxv)
             .into_par_iter()
-            .map(|t0| self.check_times(t0, t1))
-            .filter(|rock| rock.is_some())
+            .map(|vy| self.check_vy(vx, vy, maxv))
+            .filter(|x| x.is_some())
             .collect::<Vec<_>>();
         match rock.len() {
             0 => None,
@@ -175,18 +142,13 @@ impl HailCloud {
             _ => panic!(),
         }
     }
-    fn check_times(&self, t0: usize, t1: usize) -> Option<InitialCondition> {
-        for i in 0..self.stones.len() {
-            for j in 0..self.stones.len() {
-                if j == i {
-                    continue;
-                }
-                let rock = solve_rock(t0, t1, &self.stones[i], &self.stones[j]);
-                if rock.is_err() {
-                    continue;
-                }
-                let rock = rock.unwrap();
-                if self.verify_rock(i, j, &rock) {
+    fn check_vy(&self, vx: i64, vy: i64, maxv:i64) -> Option<InitialCondition> {
+        for vz in -maxv..maxv {
+            for i in 0..self.stones.len() {
+                // assume hits at t: 1
+                let v = Velocity::new([vx, vy, vz]);
+                let rock = solve_rock(1, &self.stones[i], &v);
+                if self.verify_rock(i, &rock) {
                     return Some(rock);
                 }
             }
@@ -194,9 +156,9 @@ impl HailCloud {
         None
     }
     /// Return true if rock intersects all stones. Assume stones at i and j are already checked
-    fn verify_rock(&self, i: usize, j: usize, rock: &InitialCondition) -> bool {
+    fn verify_rock(&self, i: usize, rock: &InitialCondition) -> bool {
         for k in 0..self.stones.len() {
-            if k == i || k == j {
+            if k == i {
                 continue;
             }
             // stone_loc = stone_pos + stone_vel * t
@@ -213,7 +175,7 @@ impl HailCloud {
             if t < 0 {
                 return false;
             }
-            for n in 0..2 {
+            for n in 0..3 {
                 if rock.position.vec[n] as i64 + rock.velocity.vec[n] as i64 * t
                     != stone.position.vec[n] as i64 + stone.velocity.vec[n] as i64 * t
                 {
@@ -242,10 +204,10 @@ impl Display for HailCloud {
         Ok(())
     }
 }
-pub fn run(input: &str) -> i64 {
+pub fn run(input: &str, maxv:i64) -> i64 {
     let hail = input.parse::<HailCloud>().unwrap();
     println!("{}", hail);
-    hail.run()
+    hail.run(maxv)
 }
 
 #[cfg(test)]
@@ -253,6 +215,6 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 47);
+        assert_eq!(super::run(input, 10), 47);
     }
 }
