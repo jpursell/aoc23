@@ -1,7 +1,5 @@
 use std::{fmt::Display, str::FromStr, time::Instant};
 
-use rayon::prelude::*;
-
 #[derive(Debug, Clone, Copy)]
 struct Position {
     vec: [i64; 3],
@@ -89,18 +87,18 @@ impl Display for InitialCondition {
     }
 }
 /// Return rock InitialConfition that will intersect both stones at given times
-fn solve_rock(t0: usize, stone0: &InitialCondition, vel: &Velocity) -> InitialCondition {
+fn solve_rock(stone0: &InitialCondition, vel: &Velocity) -> InitialCondition {
     let p0 = stone0
         .position
         .vec
         .iter()
         .zip(stone0.velocity.vec.iter())
-        .map(|(&p, &v)| p + v * t0 as i64)
+        .map(|(&p, &v)| p + v as i64)
         .collect::<Vec<_>>();
     let pos = p0
         .iter()
         .zip(vel.vec.iter())
-        .map(|(&p, &v)| p - v * t0 as i64)
+        .map(|(&p, &v)| p - v as i64)
         .collect::<Vec<_>>();
     let pos = Position::new([pos[0], pos[1], pos[2]]);
     InitialCondition::new(pos, vel.clone())
@@ -115,41 +113,104 @@ impl HailCloud {
 
     /// Solve for rock that will pass through all hail positions
     /// and return sum of initial position coords
-    fn run(&self, maxv:i64) -> i64 {
+    fn run(&self) -> i64 {
         let start = Instant::now();
         let mut last = start;
-        for vx in -maxv..maxv {
+        let mut maxv = 0;
+        loop {
+            maxv += 1;
             if last.elapsed().as_secs() > 5 {
-                println!("{} vx: {}", start.elapsed().as_secs_f32(), vx);
+                println!("{} maxv: {}", start.elapsed().as_secs_f32(), maxv);
                 last = Instant::now();
             }
-            if let Some(rock) = self.check_vx(vx, maxv) {
+            if let Some(rock) = self.check_maxv(maxv) {
                 println!("rock: {}", rock);
                 return rock.position_sum();
             }
         }
-        panic!("no solution found");
     }
-    fn check_vx(&self, vx: i64, maxv:i64) -> Option<InitialCondition> {
-        let rock = (-maxv..maxv)
-            .into_par_iter()
-            .map(|vy| self.check_vy(vx, vy, maxv))
-            .filter(|x| x.is_some())
-            .collect::<Vec<_>>();
-        match rock.len() {
-            0 => None,
-            1 => rock[0],
-            _ => panic!(),
+    fn check_maxv(&self, maxv: i64) -> Option<InitialCondition> {
+        {
+            let vx = maxv;
+            for vy in -maxv..maxv {
+                for vz in -maxv..maxv {
+                    for i in 0..self.stones.len() {
+                        let v = Velocity::new([vx, vy, vz]);
+                        let rock = solve_rock(&self.stones[i], &v);
+                        if self.verify_rock(i, &rock) {
+                            return Some(rock);
+                        }
+                    }
+                }
+            }
         }
-    }
-    fn check_vy(&self, vx: i64, vy: i64, maxv:i64) -> Option<InitialCondition> {
-        for vz in -maxv..maxv {
-            for i in 0..self.stones.len() {
-                // assume hits at t: 1
-                let v = Velocity::new([vx, vy, vz]);
-                let rock = solve_rock(1, &self.stones[i], &v);
-                if self.verify_rock(i, &rock) {
-                    return Some(rock);
+        {
+            let vx = -maxv;
+            for vy in -maxv..maxv {
+                for vz in -maxv..maxv {
+                    for i in 0..self.stones.len() {
+                        let v = Velocity::new([vx, vy, vz]);
+                        let rock = solve_rock(&self.stones[i], &v);
+                        if self.verify_rock(i, &rock) {
+                            return Some(rock);
+                        }
+                    }
+                }
+            }
+        }
+        {
+            let vy = maxv;
+            for vx in -maxv..maxv {
+                for vz in -maxv..maxv {
+                    for i in 0..self.stones.len() {
+                        let v = Velocity::new([vx, vy, vz]);
+                        let rock = solve_rock(&self.stones[i], &v);
+                        if self.verify_rock(i, &rock) {
+                            return Some(rock);
+                        }
+                    }
+                }
+            }
+        }
+        {
+            let vy = -maxv;
+            for vx in -maxv..maxv {
+                for vz in -maxv..maxv {
+                    for i in 0..self.stones.len() {
+                        let v = Velocity::new([vx, vy, vz]);
+                        let rock = solve_rock(&self.stones[i], &v);
+                        if self.verify_rock(i, &rock) {
+                            return Some(rock);
+                        }
+                    }
+                }
+            }
+        }
+        {
+            let vz = maxv;
+            for vx in -maxv..maxv {
+                for vy in -maxv..maxv {
+                    for i in 0..self.stones.len() {
+                        let v = Velocity::new([vx, vy, vz]);
+                        let rock = solve_rock(&self.stones[i], &v);
+                        if self.verify_rock(i, &rock) {
+                            return Some(rock);
+                        }
+                    }
+                }
+            }
+        }
+        {
+            let vz = -maxv;
+            for vx in -maxv..maxv {
+                for vy in -maxv..maxv {
+                    for i in 0..self.stones.len() {
+                        let v = Velocity::new([vx, vy, vz]);
+                        let rock = solve_rock(&self.stones[i], &v);
+                        if self.verify_rock(i, &rock) {
+                            return Some(rock);
+                        }
+                    }
                 }
             }
         }
@@ -204,10 +265,10 @@ impl Display for HailCloud {
         Ok(())
     }
 }
-pub fn run(input: &str, maxv:i64) -> i64 {
+pub fn run(input: &str) -> i64 {
     let hail = input.parse::<HailCloud>().unwrap();
     println!("{}", hail);
-    hail.run(maxv)
+    hail.run()
 }
 
 #[cfg(test)]
@@ -215,6 +276,6 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 10), 47);
+        assert_eq!(super::run(input), 47);
     }
 }
