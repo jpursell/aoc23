@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr, time::Instant};
 
 use itertools::Itertools;
 
-use ndarray::Array1;
+use ndarray::{Array1, Array3};
 use rayon::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -139,17 +139,17 @@ impl HailCloud {
     fn estimate_rock(&self, maxt:usize) -> InitialCondition {
         let time_arr =  {
             let n_time = 100;
-            let d_time = maxt / n_time;
-            let arr = (0..n_time).map(|n| n * d_time);
+            let d_time = (maxt / n_time);
+            let arr = (0..n_time).map(|n| (n * d_time) as i64);
             Array1::from_iter(arr)
-        }
-        let stone_pos = {
-            // todo probrably replace middle mapv with iter and collect
-            // then turn into a Array3::from_shape_vec afterwards
-            self.stones.iter().map(|s| time_arr.mapv(|t| (0..2).map(|i| s.position.vec[i] + s.velocity.vec[i] * t).collect::<Vec<_>>())).collect::<Vec<_>>();
-        }
-        
-
+        };
+        let mut stone_pos = Array3::zeros((self.stones.len(), time_arr.len(), 3));
+        stone_pos.indexed_iter_mut().for_each(|((istone, itime, iaxis), p)|{
+            let s = &self.stones[istone];
+            *p = s.position.vec[iaxis] + s.velocity.vec[iaxis] * time_arr[itime];
+        });
+        todo!("Finish this")
+        InitialCondition::new(Position::new([0, 0,0]), Velocity::new([0,0,0]))
     }
     fn check_maxv(&self, maxv: i64) -> Option<InitialCondition> {
         let max_x = (-maxv..maxv)
