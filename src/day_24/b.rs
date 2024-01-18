@@ -2,6 +2,7 @@ use std::{fmt::Display, str::FromStr, time::Instant};
 
 use itertools::Itertools;
 
+use ndarray::Array1;
 use rayon::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -132,6 +133,23 @@ impl HailCloud {
                 return rock.position_sum();
             }
         }
+    }
+    /// Make a guess at the rock's initial conditions by observing
+    /// when in time the stones will be close together
+    fn estimate_rock(&self, maxt:usize) -> InitialCondition {
+        let time_arr =  {
+            let n_time = 100;
+            let d_time = maxt / n_time;
+            let arr = (0..n_time).map(|n| n * d_time);
+            Array1::from_iter(arr)
+        }
+        let stone_pos = {
+            // todo probrably replace middle mapv with iter and collect
+            // then turn into a Array3::from_shape_vec afterwards
+            self.stones.iter().map(|s| time_arr.mapv(|t| (0..2).map(|i| s.position.vec[i] + s.velocity.vec[i] * t).collect::<Vec<_>>())).collect::<Vec<_>>();
+        }
+        
+
     }
     fn check_maxv(&self, maxv: i64) -> Option<InitialCondition> {
         let max_x = (-maxv..maxv)
