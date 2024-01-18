@@ -144,10 +144,14 @@ impl HailCloud {
             Array1::from_iter(arr)
         };
         let mut stone_pos = Array3::zeros((self.stones.len(), time_arr.len(), 3));
+        for t in time_arr.iter() {
+        // todo move this stuff and only consider one time before moving on to save on memory
         stone_pos.indexed_iter_mut().for_each(|((istone, itime, iaxis), p)|{
             let s = &self.stones[istone];
             *p = s.position.vec[iaxis] + s.velocity.vec[iaxis] * time_arr[itime];
         });
+
+        }
         todo!("Finish this")
         InitialCondition::new(Position::new([0, 0,0]), Velocity::new([0,0,0]))
     }
