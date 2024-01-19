@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr, time::Instant};
 
 use itertools::Itertools;
 
-use ndarray::{Array1, Array2, Array3, s, Axis};
+use ndarray::{s, Array1, Array2, Axis};
 use rayon::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -139,13 +139,13 @@ impl HailCloud {
     fn estimate_rock(&self, maxt: usize) -> InitialCondition {
         let time_arr = {
             let n_time = 100.min(maxt);
-            let d_time = (maxt / n_time);
+            let d_time = maxt / n_time;
             let arr = (0..n_time).map(|n| (n * d_time) as i64);
             Array1::from_iter(arr)
         };
         let mut current_stone_pos = Array2::zeros((self.stones.len(), 3));
         let mut inv_dist_between_stones = Array2::zeros((self.stones.len(), self.stones.len()));
-        let mut min_t = Array1::zeros((self.stones.len()));
+        let mut min_t = Array1::zeros(self.stones.len());
         let mut min_d = Array1::from_elem(self.stones.len(), f32::MAX);
         let mut e_pos = Array2::zeros((self.stones.len(), 3));
 
@@ -158,30 +158,45 @@ impl HailCloud {
                     *p = s.position.vec[iaxis] + s.velocity.vec[iaxis] * t;
                 });
             for i in 0..self.stones.len() {
-                for j in (i+1)..self.stones.len() {
+                for j in (i + 1)..self.stones.len() {
                     let mut d = 0.0;
                     for n in 0..3 {
-                        d += ((current_stone_pos[[i, n]] - current_stone_pos[[j, n]]) as f32).powi(2);
+                        d += ((current_stone_pos[[i, n]] - current_stone_pos[[j, n]]) as f32)
+                            .powi(2);
                     }
                     d = 1.0 / d.sqrt();
                     inv_dist_between_stones[[i, j]] = d;
                     inv_dist_between_stones[[j, i]] = d;
                 }
             }
-            inv_dist_between_stones.axis_iter(Axis(0)).enumerate().for_each(|(i, arr)|{
-                let d = arr.sum();
-                if d < min_d[i] {
-                    min_d[i] = d;
-                    min_t[i] = *t;
-                    // save best stone position
-                    for n in 0..3 {
-                        e_pos[[i, n]] = current_stone_pos[[i, n]];
+            inv_dist_between_stones
+                .axis_iter(Axis(0))
+                .enumerate()
+                .for_each(|(i, arr)| {
+                    let d = arr.sum();
+                    if i == 0 {
+                        println!("time {} stone {} dist {}", t, i, d);
                     }
-                }
-            });
+                    if d < min_d[i] {
+                        if i == 0 {
+                            println!("assign new best");
+                        }
+                        min_d[i] = d;
+                        min_t[i] = *t;
+                        // save best stone position
+                        for n in 0..3 {
+                            e_pos[[i, n]] = current_stone_pos[[i, n]];
+                        }
+                    }
+                });
         }
         for i in 0..self.stones.len() {
-            println!("stone {} hits around time {} at pos {}", i, min_t[i], e_pos.slice(s![i, ..]));
+            println!(
+                "stone {} hits around time {} at pos {}",
+                i,
+                min_t[i],
+                e_pos.slice(s![i, ..])
+            );
         }
 
         todo!("Finish this");
@@ -311,5 +326,10 @@ mod tests {
     fn test1() {
         let input = include_str!("example_data.txt");
         assert_eq!(super::run(input, 10), 47);
+    }
+    #[test]
+    fn test2() {
+        let input = include_str!("data.txt");
+        assert_eq!(super::run(input, 120_000_000_000), 0);
     }
 }
