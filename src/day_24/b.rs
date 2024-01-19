@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr, time::Instant};
 
 use itertools::Itertools;
 
-use ndarray::{Array1, Array3};
+use ndarray::{Array1, Array2, Array3, s, Axis};
 use rayon::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -136,24 +136,56 @@ impl HailCloud {
     }
     /// Make a guess at the rock's initial conditions by observing
     /// when in time the stones will be close together
-    fn estimate_rock(&self, maxt:usize) -> InitialCondition {
-        let time_arr =  {
-            let n_time = 100;
+    fn estimate_rock(&self, maxt: usize) -> InitialCondition {
+        let time_arr = {
+            let n_time = 100.min(maxt);
             let d_time = (maxt / n_time);
             let arr = (0..n_time).map(|n| (n * d_time) as i64);
             Array1::from_iter(arr)
         };
-        let mut stone_pos = Array3::zeros((self.stones.len(), time_arr.len(), 3));
-        for t in time_arr.iter() {
-        // todo move this stuff and only consider one time before moving on to save on memory
-        stone_pos.indexed_iter_mut().for_each(|((istone, itime, iaxis), p)|{
-            let s = &self.stones[istone];
-            *p = s.position.vec[iaxis] + s.velocity.vec[iaxis] * time_arr[itime];
-        });
+        let mut current_stone_pos = Array2::zeros((self.stones.len(), 3));
+        let mut inv_dist_between_stones = Array2::zeros((self.stones.len(), self.stones.len()));
+        let mut min_t = Array1::zeros((self.stones.len()));
+        let mut min_d = Array1::from_elem(self.stones.len(), f32::MAX);
+        let mut e_pos = Array2::zeros((self.stones.len(), 3));
 
+        // for each time compute distances and update estimates
+        for t in time_arr.iter() {
+            current_stone_pos
+                .indexed_iter_mut()
+                .for_each(|((istone, iaxis), p)| {
+                    let s = &self.stones[istone];
+                    *p = s.position.vec[iaxis] + s.velocity.vec[iaxis] * t;
+                });
+            for i in 0..self.stones.len() {
+                for j in (i+1)..self.stones.len() {
+                    let mut d = 0.0;
+                    for n in 0..3 {
+                        d += ((current_stone_pos[[i, n]] - current_stone_pos[[j, n]]) as f32).powi(2);
+                    }
+                    d = 1.0 / d.sqrt();
+                    inv_dist_between_stones[[i, j]] = d;
+                    inv_dist_between_stones[[j, i]] = d;
+                }
+            }
+            inv_dist_between_stones.axis_iter(Axis(0)).enumerate().for_each(|(i, arr)|{
+                let d = arr.sum();
+                if d < min_d[i] {
+                    min_d[i] = d;
+                    min_t[i] = *t;
+                    // save best stone position
+                    for n in 0..3 {
+                        e_pos[[i, n]] = current_stone_pos[[i, n]];
+                    }
+                }
+            });
         }
-        todo!("Finish this")
-        InitialCondition::new(Position::new([0, 0,0]), Velocity::new([0,0,0]))
+        for i in 0..self.stones.len() {
+            println!("stone {} hits around time {} at pos {}", i, min_t[i], e_pos.slice(s![i, ..]));
+        }
+
+        todo!("Finish this");
+        InitialCondition::new(Position::new([0, 0, 0]), Velocity::new([0, 0, 0]))
     }
     fn check_maxv(&self, maxv: i64) -> Option<InitialCondition> {
         let max_x = (-maxv..maxv)
@@ -265,9 +297,11 @@ impl Display for HailCloud {
         Ok(())
     }
 }
-pub fn run(input: &str) -> i64 {
+pub fn run(input: &str, maxt: usize) -> i64 {
     let hail = input.parse::<HailCloud>().unwrap();
     println!("{}", hail);
+    let estimate = hail.estimate_rock(maxt);
+    println!("estimate: {}", estimate);
     hail.run()
 }
 
@@ -276,6 +310,6 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input), 47);
+        assert_eq!(super::run(input, 10), 47);
     }
 }
