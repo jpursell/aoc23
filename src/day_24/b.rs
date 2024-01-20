@@ -3,6 +3,7 @@ use std::{fmt::Display, str::FromStr, time::Instant};
 use itertools::Itertools;
 
 use ndarray::{s, Array1, Array2, Axis};
+use polyfit_rs::polyfit_rs::polyfit;
 use rayon::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -17,6 +18,7 @@ impl Position {
         self.vec.iter().sum()
     }
 }
+
 impl Display for Position {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}, {}, {}", self.vec[0], self.vec[1], self.vec[2])
@@ -125,7 +127,7 @@ impl HailCloud {
         loop {
             maxv += 1;
             if last.elapsed().as_secs() > 5 {
-                println!("{} maxv: {}", start.elapsed().as_secs_f32(), maxv);
+                println!("{} maxv: {}", start.elapsed().as_secs_f64(), maxv);
                 last = Instant::now();
             }
             if let Some(rock) = self.check_maxv(maxv) {
@@ -138,7 +140,7 @@ impl HailCloud {
     /// when in time the stones will be close together
     fn estimate_rock(&self, maxt: usize) -> InitialCondition {
         let time_arr = {
-            let n_time = 100.min(maxt);
+            let n_time = 1_000.min(maxt);
             let d_time = maxt / n_time;
             let arr = (0..n_time).map(|n| (n * d_time) as i64);
             Array1::from_iter(arr)
@@ -146,7 +148,7 @@ impl HailCloud {
         let mut current_stone_pos = Array2::zeros((self.stones.len(), 3));
         let mut inv_dist_between_stones = Array2::zeros((self.stones.len(), self.stones.len()));
         let mut min_t = Array1::zeros(self.stones.len());
-        let mut min_d = Array1::from_elem(self.stones.len(), f32::MAX);
+        let mut min_d = Array1::from_elem(self.stones.len(), f64::MIN);
         let mut e_pos = Array2::zeros((self.stones.len(), 3));
 
         // for each time compute distances and update estimates
@@ -161,7 +163,7 @@ impl HailCloud {
                 for j in (i + 1)..self.stones.len() {
                     let mut d = 0.0;
                     for n in 0..3 {
-                        d += ((current_stone_pos[[i, n]] - current_stone_pos[[j, n]]) as f32)
+                        d += ((current_stone_pos[[i, n]] - current_stone_pos[[j, n]]) as f64)
                             .powi(2);
                     }
                     d = 1.0 / d.sqrt();
@@ -174,18 +176,12 @@ impl HailCloud {
                 .enumerate()
                 .for_each(|(i, arr)| {
                     let d = arr.sum();
-                    if i == 0 {
-                        println!("time {} stone {} dist {}", t, i, d);
-                    }
-                    if d < min_d[i] {
-                        if i == 0 {
-                            println!("assign new best");
-                        }
+                    if d > min_d[i] {
                         min_d[i] = d;
-                        min_t[i] = *t;
+                        min_t[i] = *t as f64;
                         // save best stone position
                         for n in 0..3 {
-                            e_pos[[i, n]] = current_stone_pos[[i, n]];
+                            e_pos[[i, n]] = current_stone_pos[[i, n]] as f64;
                         }
                     }
                 });
@@ -198,6 +194,13 @@ impl HailCloud {
                 e_pos.slice(s![i, ..])
             );
         }
+
+        let x_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 0]).to_vec()), 1);
+        let y_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 1]).to_vec()), 1);
+        let z_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 2]).to_vec()), 1);
+        dbg!(x_result);
+        dbg!(y_result);
+        dbg!(z_result);
 
         todo!("Finish this");
         InitialCondition::new(Position::new([0, 0, 0]), Velocity::new([0, 0, 0]))
@@ -330,6 +333,6 @@ mod tests {
     #[test]
     fn test2() {
         let input = include_str!("data.txt");
-        assert_eq!(super::run(input, 120_000_000_000), 0);
+        assert_eq!(super::run(input, 1_200_000_000_000), 0);
     }
 }
