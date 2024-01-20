@@ -140,7 +140,7 @@ impl HailCloud {
     /// when in time the stones will be close together
     fn estimate_rock(&self, maxt: usize) -> InitialCondition {
         let time_arr = {
-            let n_time = 1_000.min(maxt);
+            let n_time = 100.min(maxt);
             let d_time = maxt / n_time;
             let arr = (0..n_time).map(|n| (n * d_time) as i64);
             Array1::from_iter(arr)
@@ -195,12 +195,60 @@ impl HailCloud {
             );
         }
 
-        let x_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 0]).to_vec()), 1);
-        let y_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 1]).to_vec()), 1);
-        let z_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 2]).to_vec()), 1);
-        dbg!(x_result);
-        dbg!(y_result);
-        dbg!(z_result);
+        let x_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 0]).to_vec()), 1).unwrap();
+        let y_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 1]).to_vec()), 1).unwrap();
+        let z_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 2]).to_vec()), 1).unwrap();
+        let mut rp = [x_result[0], y_result[0], z_result[0]];
+        let mut rv = [x_result[1], y_result[1], z_result[1]];
+        let mut t = min_t.to_vec();
+        dbg!(&x_result);
+        dbg!(&y_result);
+        dbg!(&z_result);
+        dbg!(&rp);
+        dbg!(&rv);
+
+        // use gradient descent to refine solution
+        let mut grad_rp= [0.0_f64;3];
+        let mut grad_rv= [0.0_f64;3];
+        let mut grad_t= vec![0.0_f64;self.stones.len()];
+        let p64 = self.stones.iter().map(|s| s.position.vec.iter().map(|&x| x as f64).collect::<Vec<_>>()).collect::<Vec<_>>();
+        let v64 = self.stones.iter().map(|s| s.velocity.vec.iter().map(|&x| x as f64).collect::<Vec<_>>()).collect::<Vec<_>>();
+        let lr = 0.001;
+        for _ in 0..10 {
+            for i in 0..3{
+                grad_rp[i] = 0.0;
+                grad_rv[i] = 0.0;
+            }
+            for i in  0..self.stones.len() {
+                grad_t[i] = 0.0;
+            }
+            for i in 0..self.stones.len() {
+                let p = &p64[i];
+                let v = &v64[i];
+                for n in 0..3 {
+                    todo!("update these equations from the notebook");
+                    // de^2/drp = -2*p + 2*rp + 2*rv*t - 2*t*v
+                    grad_rp[n] += -2.0 * p[n] + 2.0 * rp[n] + 2.0 * rv[n] * t[i] - 2.0 * t[i] * v[n];
+                    // de^2/drv = -2*t*(p - rp - rv*t + t*v)
+                    grad_rv[n] += -2.0 * t[i] * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
+                    // de^2/dt = (-2*rv + 2*v)*(p - rp - rv*t + t*v)
+                    grad_t[i] += (-2.0 * rv[n] + 2.0 * v[n]) * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
+                }
+            }
+            dbg!(&grad_rp);
+            dbg!(&rp);
+            dbg!(&grad_rv);
+            dbg!(&rv);
+            dbg!(&grad_t);
+            dbg!(&t);
+            for i in 0..self.stones.len() {
+                t[i] -= grad_t[i] * lr;
+            }
+            for i in 0..3 {
+                rp[i] -= grad_rp[i] * lr;
+                rv[i] -= grad_rv[i] * lr;
+            }
+        }
 
         todo!("Finish this");
         InitialCondition::new(Position::new([0, 0, 0]), Velocity::new([0, 0, 0]))
