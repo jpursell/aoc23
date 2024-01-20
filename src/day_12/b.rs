@@ -299,10 +299,7 @@ mod tests {
     fn test_trivial_11() {
         // TODO debug this
         assert_eq!(
-            "#.. 1"
-                .parse::<SpringRecord>()
-                .unwrap()
-                .count_solutions(),
+            "#.. 1".parse::<SpringRecord>().unwrap().count_solutions(),
             1
         );
     }

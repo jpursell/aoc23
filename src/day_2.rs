@@ -6,12 +6,14 @@ pub fn day_2() {
 
 fn day_2a(input: &str) -> u32 {
     let mut sum: u32 = 0;
-    for line in input.split("\n"){
-        let (game_str, data_str) =  line.split_at(line.find(":").unwrap());
-        let game_num = game_str[game_str.find("Game ").unwrap() + 5..].parse::<u32>().unwrap();
+    for line in input.split("\n") {
+        let (game_str, data_str) = line.split_at(line.find(":").unwrap());
+        let game_num = game_str[game_str.find("Game ").unwrap() + 5..]
+            .parse::<u32>()
+            .unwrap();
         let mut possible = true;
-        for grab_str in data_str[1..].split(";"){
-            for count_str in grab_str.split(","){
+        for grab_str in data_str[1..].split(";") {
+            for count_str in grab_str.split(",") {
                 let count_str = &count_str[1..];
                 let (num, color) = count_str.split_at(count_str.find(" ").unwrap());
                 let color = color.trim();
@@ -33,21 +35,27 @@ fn day_2a(input: &str) -> u32 {
 
 fn day_2b(input: &str) -> u32 {
     let mut sum: u32 = 0;
-    for line in input.split("\n"){
-        let (_game_str, data_str) =  line.split_at(line.find(":").unwrap());
+    for line in input.split("\n") {
+        let (_game_str, data_str) = line.split_at(line.find(":").unwrap());
         let mut max_red: u32 = 0;
         let mut max_green: u32 = 0;
         let mut max_blue: u32 = 0;
-        for grab_str in data_str[1..].split(";"){
-            for count_str in grab_str.split(","){
+        for grab_str in data_str[1..].split(";") {
+            for count_str in grab_str.split(",") {
                 let count_str = &count_str[1..];
                 let (num, color) = count_str.split_at(count_str.find(" ").unwrap());
                 let color = color.trim();
                 let num = num.parse::<u32>().unwrap();
                 match color {
-                    "red" => {max_red = max_red.max(num);}
-                    "green" => {max_green = max_green.max(num);}
-                    "blue" => {max_blue = max_blue.max(num);}
+                    "red" => {
+                        max_red = max_red.max(num);
+                    }
+                    "green" => {
+                        max_green = max_green.max(num);
+                    }
+                    "blue" => {
+                        max_blue = max_blue.max(num);
+                    }
                     other => panic!("Got bad color with len {}: {}", other.len(), &other),
                 };
             }

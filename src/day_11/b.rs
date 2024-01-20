@@ -92,7 +92,10 @@ impl Universe {
 }
 
 pub fn run(input: &str, factor: u64) -> u64 {
-    input.parse::<Universe>().unwrap().calc_distances_sum(factor)
+    input
+        .parse::<Universe>()
+        .unwrap()
+        .calc_distances_sum(factor)
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ pub fn day_4() {
     println!("day 4b {}", day_4b(input));
 }
 
-fn process_4a_line(line: & str) -> u32{
+fn process_4a_line(line: &str) -> u32 {
     let (winners, nums) = line.split_once(" | ").unwrap();
     let mut set = std::collections::HashSet::new();
     let (_, winners) = winners.split_once(": ").unwrap();
@@ -30,7 +30,7 @@ fn day_4a(input: &str) -> u32 {
     input.split("\n").map(|line| process_4a_line(line)).sum()
 }
 
-fn process_4b_line(line: & str) -> u32 {
+fn process_4b_line(line: &str) -> u32 {
     let (winners, nums) = line.split_once(" | ").unwrap();
     let mut set = std::collections::HashSet::new();
     let (_, winners) = winners.split_once(": ").unwrap();

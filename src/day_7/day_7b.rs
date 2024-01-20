@@ -79,10 +79,10 @@ impl Hand {
             return Err(ParseHandTypeError);
         }
         let non_j_cards = self
-        .cards
-        .iter()
-        .filter(|c|{**c != Card::J})
-        .collect::<Vec<_>>();
+            .cards
+            .iter()
+            .filter(|c| **c != Card::J)
+            .collect::<Vec<_>>();
         let most_common = non_j_cards
             .iter()
             .collect::<Counter<_>>()

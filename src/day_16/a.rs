@@ -243,7 +243,7 @@ impl Layout {
         for irow in 0..self.light.shape()[0] {
             for icol in 0..self.light.shape()[1] {
                 for iband in 0..self.light.shape()[2] {
-                    if self.light[[irow,icol,iband]] {
+                    if self.light[[irow, icol, iband]] {
                         count += 1;
                         break;
                     }
