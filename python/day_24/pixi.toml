@@ -1,0 +1,11 @@
+[project]
+name = "day_24"
+version = "0.1.0"
+description = "Add a short description here"
+authors = ["Jeff Pursell <jpursell@gmail.com>"]
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[tasks]
+
+[dependencies]
