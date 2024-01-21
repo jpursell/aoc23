@@ -90,10 +90,20 @@ impl Display for InitialCondition {
 }
 struct HailCloud {
     stones: Vec<InitialCondition>,
+    p: Vec<Vec<f64>>,
+    v: Vec<Vec<f64>>,
 }
 impl HailCloud {
     fn new(stones: Vec<InitialCondition>) -> HailCloud {
-        HailCloud { stones }
+        let p = stones
+            .iter()
+            .map(|s| s.position.vec.iter().map(|x| *x as f64).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        let v = stones
+            .iter()
+            .map(|s| s.velocity.vec.iter().map(|x| *x as f64).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        HailCloud { stones, p, v }
     }
 
     /// Solve for rock that will pass through all hail positions
@@ -101,7 +111,7 @@ impl HailCloud {
     fn run(&self, maxt: usize, lr: f64, dropout: f64) -> i64 {
         self.estimate_rock(maxt, lr, dropout).position_sum()
     }
-    fn estimate_error(&self, rp: &[f64;3], rv: &[f64;3], t:&[f64]) -> f64 {
+    fn estimate_error(&self, rp: &[f64; 3], rv: &[f64; 3], t: &[f64]) -> f64 {
         let mut error = 0.0;
         for i in 0..self.stones.len() {
             let p = &self.stones[i].position.vec;
@@ -176,16 +186,6 @@ impl HailCloud {
         let mut grad_rp = [0.0_f64; 3];
         let mut grad_rv = [0.0_f64; 3];
         let mut grad_t = vec![0.0_f64; self.stones.len()];
-        let p64 = self
-            .stones
-            .iter()
-            .map(|s| s.position.vec.iter().map(|&x| x as f64).collect::<Vec<_>>())
-            .collect::<Vec<_>>();
-        let v64 = self
-            .stones
-            .iter()
-            .map(|s| s.velocity.vec.iter().map(|&x| x as f64).collect::<Vec<_>>())
-            .collect::<Vec<_>>();
         let mut rock;
         let mut last_rock = InitialCondition::default();
         let mut it = 0;
@@ -196,8 +196,58 @@ impl HailCloud {
             if last.elapsed().as_secs_f32() > 5.0 {
                 last = Instant::now();
                 let error = self.estimate_error(&rp, &rv, &t);
-                println!("it {}, t: {} error: {:.2e}", it, start.elapsed().as_secs(), error);
+                println!(
+                    "it {}, t: {} error: {:.2e}",
+                    it,
+                    start.elapsed().as_secs(),
+                    error
+                );
             }
+            // newton's method of finding local minima
+            // update time
+            for i in 0..self.stones.len() {
+                let p = &self.p[i];
+                let v = &self.v[i];
+                let mut ddt: f64 = 0.0;
+                let mut dt: f64 = 0.0;
+                for n in 0..3 {
+                    ddt += 2.0 * ((rv[n] - v[n]).powi(2));
+                    dt += (-2.0 * rv[n] + 2.0 * v[n]) * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
+                }
+                t[i] -= dt / ddt;
+            }
+            // update rp
+            {
+                let ddp: f64 = 2.0 * self.stones.len() as f64;
+                let mut dp = [0.0_f64; 3];
+                for i in 0..self.stones.len() {
+                    let p = &self.p[i];
+                    let v = &self.v[i];
+                    for n in 0..3 {
+                        dp[n] += -2.0 * p[n] + 2.0 * rp[n] + 2.0 * rv[n] * t[i] - 2.0 * t[i] * v[n];
+                    }
+                }
+                for n in 0..3 {
+                    rp[n] -= dp[n] / ddp;
+                }
+            }
+            // update rv
+            {
+                let mut ddv = [0.0_f64; 3];
+                let mut dv = [0.0_f64; 3];
+                for i in 0..self.stones.len() {
+                    let p = &self.p[i];
+                    let v = &self.v[i];
+                    for n in 0..3 {
+                        ddv[n] += 2.0 *t[i].powi(2);
+                        dv[n] += -2.0 * t[i] * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
+                    }
+                }
+                for n in 0..3 {
+                    rp[n] -= dp[n] / ddp;
+                }
+            }
+
             for i in 0..3 {
                 grad_rp[i] = 0.0;
                 grad_rv[i] = 0.0;
@@ -209,8 +259,8 @@ impl HailCloud {
                 if random::<f64>() < dropout {
                     continue;
                 }
-                let p = &p64[i];
-                let v = &v64[i];
+                let p = &self.p[i];
+                let v = &self.v[i];
                 for n in 0..3 {
                     // de^2/drp = -2*p + 2*rp + 2*rv*t - 2*t*v
                     grad_rp[n] +=
