@@ -2,6 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use ndarray::{s, Array1, Array2, Axis};
 use polyfit_rs::polyfit_rs::polyfit;
+use rand::random;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Default, Debug, Clone, Copy)]
 struct Position {
@@ -185,6 +186,10 @@ impl HailCloud {
                 grad_t[i] = 0.0;
             }
             for i in 0..self.stones.len() {
+                // dropout
+                if random::<f32>() < 0.5_f32 {
+                    continue;
+                }
                 let p = &p64[i];
                 let v = &v64[i];
                 for n in 0..3 {
