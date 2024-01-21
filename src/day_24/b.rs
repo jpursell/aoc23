@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, str::FromStr, time::Instant};
 
 use ndarray::{s, Array1, Array2, Axis};
 use polyfit_rs::polyfit_rs::polyfit;
@@ -98,14 +98,27 @@ impl HailCloud {
 
     /// Solve for rock that will pass through all hail positions
     /// and return sum of initial position coords
-    fn run(&self, maxt: usize) -> i64 {
-        self.estimate_rock(maxt).position_sum()
+    fn run(&self, maxt: usize, lr: f64, dropout: f64) -> i64 {
+        self.estimate_rock(maxt, lr, dropout).position_sum()
+    }
+    fn estimate_error(&self, rp: &[f64;3], rv: &[f64;3], t:&[f64]) -> f64 {
+        let mut error = 0.0;
+        for i in 0..self.stones.len() {
+            let p = &self.stones[i].position.vec;
+            let v = &self.stones[i].velocity.vec;
+            for n in 0..3 {
+                let rock_p = rp[n] + rv[n] * t[i];
+                let stone_p = p[n] as f64 + v[n] as f64 * t[i];
+                error += (stone_p - rock_p).powi(2);
+            }
+        }
+        error
     }
     /// Make a guess at the rock's initial conditions by observing
     /// when in time the stones will be close together
-    fn estimate_rock(&self, maxt: usize) -> InitialCondition {
+    fn estimate_rock(&self, maxt: usize, lr: f64, dropout: f64) -> InitialCondition {
         let time_arr = {
-            let n_time = 100.min(maxt);
+            let n_time = 1000.min(maxt);
             let d_time = maxt / n_time;
             let arr = (0..n_time).map(|n| (n * d_time) as i64);
             Array1::from_iter(arr)
@@ -173,11 +186,18 @@ impl HailCloud {
             .iter()
             .map(|s| s.velocity.vec.iter().map(|&x| x as f64).collect::<Vec<_>>())
             .collect::<Vec<_>>();
-        let lr = 0.01;
         let mut rock;
         let mut last_rock = InitialCondition::default();
         let mut it = 0;
+        let start = Instant::now();
+        let mut last = Instant::now();
         loop {
+            it += 1;
+            if last.elapsed().as_secs_f32() > 5.0 {
+                last = Instant::now();
+                let error = self.estimate_error(&rp, &rv, &t);
+                println!("it {}, t: {} error: {:.2e}", it, start.elapsed().as_secs(), error);
+            }
             for i in 0..3 {
                 grad_rp[i] = 0.0;
                 grad_rv[i] = 0.0;
@@ -186,8 +206,7 @@ impl HailCloud {
                 grad_t[i] = 0.0;
             }
             for i in 0..self.stones.len() {
-                // dropout
-                if random::<f32>() < 0.5_f32 {
+                if random::<f64>() < dropout {
                     continue;
                 }
                 let p = &p64[i];
@@ -203,6 +222,12 @@ impl HailCloud {
                         (-2.0 * rv[n] + 2.0 * v[n]) * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
                 }
             }
+            let find_max = |x: &[f64]| x.iter().fold(0.0_f64, |a: f64, &b| a.max(b.abs()));
+            // let max_grad = find_max(&grad_t)
+            //     .max(find_max(&grad_rp))
+            //     .max(find_max(&grad_rv));
+            let max_grad = find_max(&grad_rv);
+            let lr = (lr).min(0.01_f64 / max_grad);
             for i in 0..self.stones.len() {
                 t[i] -= grad_t[i] * lr;
             }
@@ -229,16 +254,12 @@ impl HailCloud {
             ]);
             rock = InitialCondition::new(rock_position, rock_velocity);
             if rock != last_rock {
-                println!("veryify rock {} on it {}", rock, it);
-                println!("grad {:?} @ {:?}", grad_rp, grad_rv);
-                println!("times {:?}", t);
-                println!("time grads {:?}", grad_t);
                 if self.verify_rock(&rock) {
+                    println!("Solved rock {}", rock);
                     break;
                 }
             }
             last_rock = rock;
-            it += 1;
         }
 
         rock
@@ -289,9 +310,9 @@ impl Display for HailCloud {
         Ok(())
     }
 }
-pub fn run(input: &str, maxt: usize) -> i64 {
+pub fn run(input: &str, maxt: usize, lr: f64, dropout: f64) -> i64 {
     let hail = input.parse::<HailCloud>().unwrap();
-    hail.run(maxt)
+    hail.run(maxt, lr, dropout)
 }
 
 #[cfg(test)]
@@ -299,11 +320,11 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 10), 47);
+        assert_eq!(super::run(input, 10, 0.01, 0.5), 47);
     }
     #[test]
     fn test2() {
         let input = include_str!("data.txt");
-        assert_eq!(super::run(input, 1_200_000_000_000), 0);
+        assert_eq!(super::run(input, 1_200_000_000_000, 0.01, 0.50), 0);
     }
 }
