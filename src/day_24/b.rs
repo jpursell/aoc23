@@ -3,7 +3,7 @@ use std::{fmt::Display, str::FromStr};
 use ndarray::{s, Array1, Array2, Axis};
 use polyfit_rs::polyfit_rs::polyfit;
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Debug, Clone, Copy)]
 struct Position {
     vec: [i64; 3],
 }
@@ -33,7 +33,7 @@ impl FromStr for Position {
         Ok(Position::new(vec))
     }
 }
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Debug, Clone, Copy)]
 struct Velocity {
     vec: [i64; 3],
 }
@@ -59,7 +59,7 @@ impl FromStr for Velocity {
         Ok(Velocity::new(vec))
     }
 }
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone, Copy, Debug)]
 struct InitialCondition {
     position: Position,
     velocity: Velocity,
@@ -174,12 +174,9 @@ impl HailCloud {
             .collect::<Vec<_>>();
         let lr = 0.01;
         let mut rock;
+        let mut last_rock = InitialCondition::default();
         let mut it = 0;
         loop {
-            dbg!(&it);
-            dbg!(&rp);
-            dbg!(&rv);
-
             for i in 0..3 {
                 grad_rp[i] = 0.0;
                 grad_rv[i] = 0.0;
@@ -201,21 +198,12 @@ impl HailCloud {
                         (-2.0 * rv[n] + 2.0 * v[n]) * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
                 }
             }
-            let tlr = (1.0 / grad_t.iter().fold(0.0, |a: f64, &b| a.max(b))).max(lr);
             for i in 0..self.stones.len() {
-                t[i] -= grad_t[i] * tlr;
+                t[i] -= grad_t[i] * lr;
             }
-            let max_grad_rp = grad_rp.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-            dbg!(&grad_rp);
-            dbg!(&max_grad_rp);
-            let rp_lr = (1.0 / max_grad_rp).max(lr);
-            dbg!(&rp_lr);
-            let max_grad_rv = grad_rv.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-            dbg!(&max_grad_rv);
-            let rv_lr = (1.0 / max_grad_rv).max(lr);
             for i in 0..3 {
-                rp[i] -= grad_rp[i] * rp_lr;
-                rv[i] -= grad_rv[i] * rv_lr;
+                rp[i] -= grad_rp[i] * lr;
+                rv[i] -= grad_rv[i] * lr;
             }
             if !rp.iter().all(|x| x.is_finite()) {
                 dbg!(&rp);
@@ -235,9 +223,16 @@ impl HailCloud {
                 rv[2].round() as i64,
             ]);
             rock = InitialCondition::new(rock_position, rock_velocity);
-            if self.verify_rock(&rock) {
-                break;
+            if rock != last_rock {
+                println!("veryify rock {} on it {}", rock, it);
+                println!("grad {:?} @ {:?}", grad_rp, grad_rv);
+                println!("times {:?}", t);
+                println!("time grads {:?}", grad_t);
+                if self.verify_rock(&rock) {
+                    break;
+                }
             }
+            last_rock = rock;
             it += 1;
         }
 
@@ -245,7 +240,6 @@ impl HailCloud {
     }
     /// Return true if rock intersects all stones. Assume stones at i and j are already checked
     fn verify_rock(&self, rock: &InitialCondition) -> bool {
-        println!("veryify {}", rock);
         for k in 0..self.stones.len() {
             // stone_loc = stone_pos + stone_vel * t
             // rock_loc = rock_pos + rock_vel * t
