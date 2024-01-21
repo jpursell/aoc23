@@ -1,10 +1,7 @@
-use std::{fmt::Display, str::FromStr, time::Instant};
-
-use itertools::Itertools;
+use std::{fmt::Display, str::FromStr};
 
 use ndarray::{s, Array1, Array2, Axis};
 use polyfit_rs::polyfit_rs::polyfit;
-use rayon::prelude::*;
 
 #[derive(Default, Debug, Clone, Copy)]
 struct Position {
@@ -42,9 +39,6 @@ struct Velocity {
 }
 impl Velocity {
     fn new(vec: [i64; 3]) -> Velocity {
-        // vec.iter().for_each(|x| {
-        //     assert_ne!(*x, 0);
-        // });
         Velocity { vec }
     }
 }
@@ -92,23 +86,6 @@ impl Display for InitialCondition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} @ {}", self.position, self.velocity)
     }
-}
-/// Return rock InitialConfition that will intersect both stones at given times
-fn solve_rock(t0: usize, stone0: &InitialCondition, vel: &Velocity) -> InitialCondition {
-    let p0 = stone0
-        .position
-        .vec
-        .iter()
-        .zip(stone0.velocity.vec.iter())
-        .map(|(&p, &v)| p + v * t0 as i64)
-        .collect::<Vec<_>>();
-    let pos = p0
-        .iter()
-        .zip(vel.vec.iter())
-        .map(|(&p, &v)| p - v * t0 as i64)
-        .collect::<Vec<_>>();
-    let pos = Position::new([pos[0], pos[1], pos[2]]);
-    InitialCondition::new(pos, vel.clone())
 }
 struct HailCloud {
     stones: Vec<InitialCondition>,
@@ -173,14 +150,6 @@ impl HailCloud {
                     }
                 });
         }
-        // for i in 0..self.stones.len() {
-        //     println!(
-        //         "stone {} hits around time {} at pos {}",
-        //         i,
-        //         min_t[i],
-        //         e_pos.slice(s![i, ..])
-        //     );
-        // }
 
         let x_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 0]).to_vec()), 1).unwrap();
         let y_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 1]).to_vec()), 1).unwrap();
@@ -188,11 +157,6 @@ impl HailCloud {
         let mut rp = [x_result[0], y_result[0], z_result[0]];
         let mut rv = [x_result[1], y_result[1], z_result[1]];
         let mut t = min_t.to_vec();
-        // dbg!(&x_result);
-        // dbg!(&y_result);
-        // dbg!(&z_result);
-        // dbg!(&rp);
-        // dbg!(&rv);
 
         // use gradient descent to refine solution
         let mut grad_rp = [0.0_f64; 3];
@@ -209,9 +173,13 @@ impl HailCloud {
             .map(|s| s.velocity.vec.iter().map(|&x| x as f64).collect::<Vec<_>>())
             .collect::<Vec<_>>();
         let lr = 0.01;
+        let mut rock;
         let mut it = 0;
-        let mut rock = InitialCondition::default();
         loop {
+            dbg!(&it);
+            dbg!(&rp);
+            dbg!(&rv);
+
             for i in 0..3 {
                 grad_rp[i] = 0.0;
                 grad_rv[i] = 0.0;
@@ -233,26 +201,34 @@ impl HailCloud {
                         (-2.0 * rv[n] + 2.0 * v[n]) * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
                 }
             }
-            // if it % 200 == 0 {
-            //     // dbg!(&grad_rp);
-            //     dbg!(&rp);
-            //     // dbg!(&grad_rv);
-            //     dbg!(&rv);
-            //     // dbg!(&grad_t);
-            //     dbg!(&t);
-            // }
+            let tlr = (1.0 / grad_t.iter().fold(0.0, |a: f64, &b| a.max(b))).max(lr);
             for i in 0..self.stones.len() {
-                t[i] -= grad_t[i] * lr;
+                t[i] -= grad_t[i] * tlr;
             }
+            let max_grad_rp = grad_rp.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+            dbg!(&grad_rp);
+            dbg!(&max_grad_rp);
+            let rp_lr = (1.0 / max_grad_rp).max(lr);
+            dbg!(&rp_lr);
+            let max_grad_rv = grad_rv.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+            dbg!(&max_grad_rv);
+            let rv_lr = (1.0 / max_grad_rv).max(lr);
             for i in 0..3 {
-                rp[i] -= grad_rp[i] * lr;
-                rv[i] -= grad_rv[i] * lr;
+                rp[i] -= grad_rp[i] * rp_lr;
+                rv[i] -= grad_rv[i] * rv_lr;
+            }
+            if !rp.iter().all(|x| x.is_finite()) {
+                dbg!(&rp);
+                panic!("rp not finite");
             }
             let rock_position = Position::new([
                 rp[0].round() as i64,
                 rp[1].round() as i64,
                 rp[2].round() as i64,
             ]);
+            if !rv.iter().all(|x| x.is_finite()) {
+                panic!("rv not finite");
+            }
             let rock_velocity = Velocity::new([
                 rv[0].round() as i64,
                 rv[1].round() as i64,
@@ -262,73 +238,14 @@ impl HailCloud {
             if self.verify_rock(&rock) {
                 break;
             }
+            it += 1;
         }
 
         rock
     }
-    // fn check_maxv(&self, maxv: i64) -> Option<InitialCondition> {
-    //     let max_x = (-maxv..maxv)
-    //         .cartesian_product(-maxv..maxv)
-    //         .cartesian_product(0..maxv)
-    //         .cartesian_product(0..self.stones.len())
-    //         .map(|(((vy, vz), t0), i)| (maxv, vy, vz, t0, i));
-    //     let min_x = (-maxv..maxv)
-    //         .cartesian_product(-maxv..maxv)
-    //         .cartesian_product(0..maxv)
-    //         .cartesian_product(0..self.stones.len())
-    //         .map(|(((vy, vz), t0), i)| (-maxv, vy, vz, t0, i));
-    //     let max_y = (-maxv..maxv)
-    //         .cartesian_product(-maxv..maxv)
-    //         .cartesian_product(0..maxv)
-    //         .cartesian_product(0..self.stones.len())
-    //         .map(|(((vx, vz), t0), i)| (vx, maxv, vz, t0, i));
-    //     let min_y = (-maxv..maxv)
-    //         .cartesian_product(-maxv..maxv)
-    //         .cartesian_product(0..maxv)
-    //         .cartesian_product(0..self.stones.len())
-    //         .map(|(((vx, vz), t0), i)| (vx, -maxv, vz, t0, i));
-    //     let max_z = (-maxv..maxv)
-    //         .cartesian_product(-maxv..maxv)
-    //         .cartesian_product(0..maxv)
-    //         .cartesian_product(0..self.stones.len())
-    //         .map(|(((vx, vy), t0), i)| (vx, vy, maxv, t0, i));
-    //     let min_z = (-maxv..maxv)
-    //         .cartesian_product(-maxv..maxv)
-    //         .cartesian_product(0..maxv)
-    //         .cartesian_product(0..self.stones.len())
-    //         .map(|(((vx, vy), t0), i)| (vx, vy, -maxv, t0, i));
-    //     let max_t = (-maxv..maxv)
-    //         .cartesian_product(-maxv..maxv)
-    //         .cartesian_product(-maxv..maxv)
-    //         .cartesian_product(0..self.stones.len())
-    //         .map(|(((vx, vy), vz), i)| (vx, vy, vz, maxv, i));
-    //     let rock = max_x
-    //         .chain(min_x)
-    //         .chain(max_y)
-    //         .chain(min_y)
-    //         .chain(max_z)
-    //         .chain(min_z)
-    //         .chain(max_t)
-    //         .par_bridge()
-    //         .map(|(vx, vy, vz, t0, i)| {
-    //             let v = Velocity::new([vx, vy, vz]);
-    //             let rock = solve_rock(t0 as usize, &self.stones[i], &v);
-    //             if self.verify_rock(i, &rock) {
-    //                 Some(rock)
-    //             } else {
-    //                 None
-    //             }
-    //         })
-    //         .filter(|x| x.is_some())
-    //         .collect::<Vec<_>>();
-    //     if rock.is_empty() {
-    //         None
-    //     } else {
-    //         rock[0]
-    //     }
-    // }
     /// Return true if rock intersects all stones. Assume stones at i and j are already checked
     fn verify_rock(&self, rock: &InitialCondition) -> bool {
+        println!("veryify {}", rock);
         for k in 0..self.stones.len() {
             // stone_loc = stone_pos + stone_vel * t
             // rock_loc = rock_pos + rock_vel * t
