@@ -2,7 +2,6 @@ use std::{fmt::Display, str::FromStr, time::Instant};
 
 use ndarray::{s, Array1, Array2, Axis};
 use polyfit_rs::polyfit_rs::polyfit;
-use rand::random;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Default, Debug, Clone, Copy)]
 struct Position {
@@ -108,8 +107,8 @@ impl HailCloud {
 
     /// Solve for rock that will pass through all hail positions
     /// and return sum of initial position coords
-    fn run(&self, maxt: usize, lr: f64, dropout: f64) -> i64 {
-        self.estimate_rock(maxt, lr, dropout).position_sum()
+    fn run(&self, maxt: usize) -> i64 {
+        self.estimate_rock(maxt).position_sum()
     }
     fn estimate_error(&self, rp: &[f64; 3], rv: &[f64; 3], t: &[f64]) -> f64 {
         let mut error = 0.0;
@@ -126,7 +125,7 @@ impl HailCloud {
     }
     /// Make a guess at the rock's initial conditions by observing
     /// when in time the stones will be close together
-    fn estimate_rock(&self, maxt: usize, lr: f64, dropout: f64) -> InitialCondition {
+    fn estimate_rock(&self, maxt: usize) -> InitialCondition {
         let time_arr = {
             let n_time = 1000.min(maxt);
             let d_time = maxt / n_time;
@@ -183,28 +182,34 @@ impl HailCloud {
         let mut t = min_t.to_vec();
 
         // use gradient descent to refine solution
-        let mut grad_rp = [0.0_f64; 3];
-        let mut grad_rv = [0.0_f64; 3];
-        let mut grad_t = vec![0.0_f64; self.stones.len()];
         let mut rock;
         let mut last_rock = InitialCondition::default();
         let mut it = 0;
         let start = Instant::now();
-        let mut last = Instant::now();
+        let mut debug: bool;
         loop {
             it += 1;
-            if last.elapsed().as_secs_f32() > 5.0 {
-                last = Instant::now();
+            if it == 500 {
+                dbg!(rp);
+                dbg!(rv);
+                dbg!(t);
+                panic!();
+            }
+            debug = false;
+            if it % 10 == 0 {
+                debug = true;
                 let error = self.estimate_error(&rp, &rv, &t);
                 println!(
-                    "it {}, t: {} error: {:.2e}",
+                    "it {}, t: {} error: {:.2e} last_rock: {}",
                     it,
                     start.elapsed().as_secs(),
-                    error
+                    error,
+                    last_rock
                 );
             }
             // newton's method of finding local minima
             // update time
+            let mut max_time_change: f64 = 0.0;
             for i in 0..self.stones.len() {
                 let p = &self.p[i];
                 let v = &self.v[i];
@@ -214,10 +219,17 @@ impl HailCloud {
                     ddt += 2.0 * ((rv[n] - v[n]).powi(2));
                     dt += (-2.0 * rv[n] + 2.0 * v[n]) * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
                 }
+                if debug {
+                    max_time_change = max_time_change.max((dt / ddt).abs())
+                }
                 t[i] -= dt / ddt;
+            }
+            if debug {
+                print!("dt: {} ", max_time_change);
             }
             // update rp
             {
+                let mut max_pos_change: f64 = 0.0;
                 let ddp: f64 = 2.0 * self.stones.len() as f64;
                 let mut dp = [0.0_f64; 3];
                 for i in 0..self.stones.len() {
@@ -228,63 +240,39 @@ impl HailCloud {
                     }
                 }
                 for n in 0..3 {
+                    if debug {
+                        max_pos_change = max_pos_change.max((dp[n] / ddp).abs());
+                    }
                     rp[n] -= dp[n] / ddp;
+                }
+                if debug {
+                    print!("dp: {} ", max_pos_change);
                 }
             }
             // update rv
             {
                 let mut ddv = [0.0_f64; 3];
                 let mut dv = [0.0_f64; 3];
+                let mut max_v_change: f64 = 0.0;
                 for i in 0..self.stones.len() {
                     let p = &self.p[i];
                     let v = &self.v[i];
                     for n in 0..3 {
-                        ddv[n] += 2.0 *t[i].powi(2);
+                        ddv[n] += 2.0 * t[i].powi(2);
                         dv[n] += -2.0 * t[i] * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
                     }
                 }
                 for n in 0..3 {
-                    rp[n] -= dp[n] / ddp;
+                    if debug {
+                        max_v_change = max_v_change.max((dv[n] / ddv[n]).abs());
+                    }
+                    rv[n] -= dv[n] / ddv[n];
+                }
+                if debug {
+                    println!("dv: {} ", max_v_change);
                 }
             }
 
-            for i in 0..3 {
-                grad_rp[i] = 0.0;
-                grad_rv[i] = 0.0;
-            }
-            for i in 0..self.stones.len() {
-                grad_t[i] = 0.0;
-            }
-            for i in 0..self.stones.len() {
-                if random::<f64>() < dropout {
-                    continue;
-                }
-                let p = &self.p[i];
-                let v = &self.v[i];
-                for n in 0..3 {
-                    // de^2/drp = -2*p + 2*rp + 2*rv*t - 2*t*v
-                    grad_rp[n] +=
-                        -2.0 * p[n] + 2.0 * rp[n] + 2.0 * rv[n] * t[i] - 2.0 * t[i] * v[n];
-                    // de^2/drv = -2*t*(p - rp - rv*t + t*v)
-                    grad_rv[n] += -2.0 * t[i] * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
-                    // de^2/dt = (-2*rv + 2*v)*(p - rp - rv*t + t*v)
-                    grad_t[i] +=
-                        (-2.0 * rv[n] + 2.0 * v[n]) * (p[n] - rp[n] - rv[n] * t[i] + t[i] * v[n]);
-                }
-            }
-            let find_max = |x: &[f64]| x.iter().fold(0.0_f64, |a: f64, &b| a.max(b.abs()));
-            // let max_grad = find_max(&grad_t)
-            //     .max(find_max(&grad_rp))
-            //     .max(find_max(&grad_rv));
-            let max_grad = find_max(&grad_rv);
-            let lr = (lr).min(0.01_f64 / max_grad);
-            for i in 0..self.stones.len() {
-                t[i] -= grad_t[i] * lr;
-            }
-            for i in 0..3 {
-                rp[i] -= grad_rp[i] * lr;
-                rv[i] -= grad_rv[i] * lr;
-            }
             if !rp.iter().all(|x| x.is_finite()) {
                 dbg!(&rp);
                 panic!("rp not finite");
@@ -303,19 +291,19 @@ impl HailCloud {
                 rv[2].round() as i64,
             ]);
             rock = InitialCondition::new(rock_position, rock_velocity);
-            if rock != last_rock {
-                if self.verify_rock(&rock) {
-                    println!("Solved rock {}", rock);
-                    break;
-                }
+            // if rock != last_rock {
+            if self.verify_rock(&rock, it == 499) {
+                println!("Solved after it: {} rock: {}", it, rock);
+                break;
             }
+            // }
             last_rock = rock;
         }
 
         rock
     }
     /// Return true if rock intersects all stones. Assume stones at i and j are already checked
-    fn verify_rock(&self, rock: &InitialCondition) -> bool {
+    fn verify_rock(&self, rock: &InitialCondition, debug: bool) -> bool {
         for k in 0..self.stones.len() {
             // stone_loc = stone_pos + stone_vel * t
             // rock_loc = rock_pos + rock_vel * t
@@ -323,18 +311,27 @@ impl HailCloud {
             // stone_pos - rock_pos = t * (rock_vel - stone_vel)
             // t = (stone_pos - rock_pos) / (rock_vel - stone_vel)
             let stone = &self.stones[k];
-            if rock.velocity.vec[0] as i64 - stone.velocity.vec[0] as i64 == 0 {
-                return false;
-            }
-            let t = (stone.position.vec[0] as i64 - rock.position.vec[0] as i64)
-                / (rock.velocity.vec[0] as i64 - stone.velocity.vec[0] as i64);
+            let bad_x = rock.velocity.vec[0] as i64 == stone.velocity.vec[0] as i64;
+            let t = if bad_x {
+                (stone.position.vec[1] as i64 - rock.position.vec[1] as i64)
+                    / (rock.velocity.vec[1] as i64 - stone.velocity.vec[1] as i64)
+            } else {
+                (stone.position.vec[0] as i64 - rock.position.vec[0] as i64)
+                    / (rock.velocity.vec[0] as i64 - stone.velocity.vec[0] as i64)
+            };
             if t < 0 {
+                if debug {
+                    println!("negative time stone: {}", k);
+                }
                 return false;
             }
             for n in 0..3 {
                 if rock.position.vec[n] as i64 + rock.velocity.vec[n] as i64 * t
                     != stone.position.vec[n] as i64 + stone.velocity.vec[n] as i64 * t
                 {
+                    if debug {
+                        println!("non-match at stone {} dim {}", k, n);
+                    }
                     return false;
                 }
             }
@@ -360,9 +357,9 @@ impl Display for HailCloud {
         Ok(())
     }
 }
-pub fn run(input: &str, maxt: usize, lr: f64, dropout: f64) -> i64 {
+pub fn run(input: &str, maxt: usize) -> i64 {
     let hail = input.parse::<HailCloud>().unwrap();
-    hail.run(maxt, lr, dropout)
+    hail.run(maxt)
 }
 
 #[cfg(test)]
@@ -370,11 +367,11 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 10, 0.01, 0.5), 47);
+        assert_eq!(super::run(input, 10), 47);
     }
     #[test]
     fn test2() {
         let input = include_str!("data.txt");
-        assert_eq!(super::run(input, 1_200_000_000_000, 0.01, 0.50), 0);
+        assert_eq!(super::run(input, 1_200_000_000_000), 0);
     }
 }
