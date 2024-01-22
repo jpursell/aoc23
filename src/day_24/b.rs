@@ -1,8 +1,5 @@
 use std::{fmt::Display, str::FromStr, time::Instant};
 
-use ndarray::{s, Array1, Array2, Axis};
-use polyfit_rs::polyfit_rs::polyfit;
-
 #[derive(PartialEq, Eq, PartialOrd, Ord, Default, Debug, Clone, Copy)]
 struct Position {
     vec: [i64; 3],
@@ -107,8 +104,8 @@ impl HailCloud {
 
     /// Solve for rock that will pass through all hail positions
     /// and return sum of initial position coords
-    fn run(&self, maxt: usize) -> i64 {
-        self.estimate_rock(maxt).position_sum()
+    fn run(&self) -> i64 {
+        self.estimate_rock().position_sum()
     }
     fn estimate_error(&self, rp: &[f64; 3], rv: &[f64; 3], t: &[f64]) -> f64 {
         let mut error = 0.0;
@@ -125,61 +122,10 @@ impl HailCloud {
     }
     /// Make a guess at the rock's initial conditions by observing
     /// when in time the stones will be close together
-    fn estimate_rock(&self, maxt: usize) -> InitialCondition {
-        let time_arr = {
-            let n_time = 1000.min(maxt);
-            let d_time = maxt / n_time;
-            let arr = (0..n_time).map(|n| (n * d_time) as i64);
-            Array1::from_iter(arr)
-        };
-        let mut current_stone_pos = Array2::zeros((self.stones.len(), 3));
-        let mut inv_dist_between_stones = Array2::zeros((self.stones.len(), self.stones.len()));
-        let mut min_t = Array1::zeros(self.stones.len());
-        let mut min_d = Array1::from_elem(self.stones.len(), f64::MIN);
-        let mut e_pos = Array2::zeros((self.stones.len(), 3));
-
-        // for each time compute distances and update estimates
-        for t in time_arr.iter() {
-            current_stone_pos
-                .indexed_iter_mut()
-                .for_each(|((istone, iaxis), p)| {
-                    let s = &self.stones[istone];
-                    *p = s.position.vec[iaxis] + s.velocity.vec[iaxis] * t;
-                });
-            for i in 0..self.stones.len() {
-                for j in (i + 1)..self.stones.len() {
-                    let mut d = 0.0;
-                    for n in 0..3 {
-                        d += ((current_stone_pos[[i, n]] - current_stone_pos[[j, n]]) as f64)
-                            .powi(2);
-                    }
-                    d = 1.0 / d.sqrt();
-                    inv_dist_between_stones[[i, j]] = d;
-                    inv_dist_between_stones[[j, i]] = d;
-                }
-            }
-            inv_dist_between_stones
-                .axis_iter(Axis(0))
-                .enumerate()
-                .for_each(|(i, arr)| {
-                    let d = arr.sum();
-                    if d > min_d[i] {
-                        min_d[i] = d;
-                        min_t[i] = *t as f64;
-                        // save best stone position
-                        for n in 0..3 {
-                            e_pos[[i, n]] = current_stone_pos[[i, n]] as f64;
-                        }
-                    }
-                });
-        }
-
-        let x_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 0]).to_vec()), 1).unwrap();
-        let y_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 1]).to_vec()), 1).unwrap();
-        let z_result = polyfit(&(min_t.to_vec()), &(e_pos.slice(s![.., 2]).to_vec()), 1).unwrap();
-        let mut rp = [x_result[0], y_result[0], z_result[0]];
-        let mut rv = [x_result[1], y_result[1], z_result[1]];
-        let mut t = min_t.to_vec();
+    fn estimate_rock(&self) -> InitialCondition {
+        let mut rp = [0_f64;3];
+        let mut rv = [0_f64;3];
+        let mut t = vec![0_f64;self.stones.len()];
 
         // use gradient descent to refine solution
         let mut rock;
@@ -357,9 +303,9 @@ impl Display for HailCloud {
         Ok(())
     }
 }
-pub fn run(input: &str, maxt: usize) -> i64 {
+pub fn run(input: &str) -> i64 {
     let hail = input.parse::<HailCloud>().unwrap();
-    hail.run(maxt)
+    hail.run()
 }
 
 #[cfg(test)]
@@ -367,11 +313,11 @@ mod tests {
     #[test]
     fn test1() {
         let input = include_str!("example_data.txt");
-        assert_eq!(super::run(input, 10), 47);
+        assert_eq!(super::run(input), 47);
     }
     #[test]
     fn test2() {
         let input = include_str!("data.txt");
-        assert_eq!(super::run(input, 1_200_000_000_000), 0);
+        assert_eq!(super::run(input), 0);
     }
 }
