@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 counter = "0.5.7"
 itertools = "0.12.0"
+kaminpar = "0.2.0"
 ndarray = "0.15.6"
 num = "0.4.1"
 polyfit-rs = "0.2.1"
