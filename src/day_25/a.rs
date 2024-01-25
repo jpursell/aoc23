@@ -4,11 +4,11 @@ use std::{
     str::FromStr,
 };
 
-use petgraph::{graph::UnGraph, stable_graph::IndexType, visit::{EdgeRef, NodeRef}, Graph, Undirected};
+use petgraph::{data::Build, graph::UnGraph, stable_graph::IndexType, visit::{EdgeRef, NodeRef}, Graph, Undirected};
 
 struct AocGraph {
-    graph: Graph<u32, (), Undirected>,
-    node_map: HashMap<String, _>,
+    graph: Graph<String, String, Undirected>,
+    // node_map: HashMap<String, _>,
     // node_num_to_str: BTreeMap<u32, String>,
 }
 
@@ -16,30 +16,29 @@ impl FromStr for AocGraph {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         todo!("trying to make a graph like here https://docs.rs/petgraph/latest/petgraph/graph/struct.Graph.html#");
-        let mut edges = Vec::new();
-        let mut node_map = HashMap::new();
-        let mut graph = Graph::<&str, &str>::new()
+        // let mut edges = Vec::new();
+        // let mut node_map = HashMap::new();
+        let mut graph = Graph::<String, String>::new();
 
         for line in s.lines() {
             let (l_node, r_nodes) = line.split_once(": ").unwrap();
-            if !node_str_to_num.contains_key(l_node) {
-                node_str_to_num.insert(l_node.to_string(), node_count);
-                node_num_to_str.insert(node_count, l_node.to_string());
-                node_count += 1;
-            }
+            graph.add_node(weight)
+            // if !node_map.contains_key(l_node) {
+            //     node_map.insert(l_node.to_string(), graph.add_node(l_node.to_string()));
+            // }
             for r_node in r_nodes.split(" ") {
-                if !node_str_to_num.contains_key(r_node) {
-                    node_str_to_num.insert(r_node.to_string(), node_count);
-                    node_num_to_str.insert(node_count, r_node.to_string());
-                    node_count += 1;
-                }
-                edges.push((node_str_to_num[l_node], node_str_to_num[r_node]));
+                // if !node_str_to_num.contains_key(r_node) {
+                //     node_str_to_num.insert(r_node.to_string(), node_count);
+                //     node_num_to_str.insert(node_count, r_node.to_string());
+                //     node_count += 1;
+                // }
+                // edges.push((l_node.to_string(), r_node.to_string()));
+                graph.add_edge(l_node.clone(), r_node.clone(), 1);
             }
         }
-        let graph = UnGraph::<u32, ()>::from_edges(edges.iter());
+        // let graph = UnGraph::<String, String>::from_edges(edges.iter());
         Ok(AocGraph {
             graph,
-            node_num_to_str,
         })
     }
 }
